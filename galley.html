@@ -1,0 +1,2872 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Galley — Inventory &amp; Recipe Costing</title>
+<style>
+/* ============================================================
+   Galley — design tokens
+   Style:   Data-Dense Dashboard (ui-ux-pro-max)
+   Palette: blue data + amber highlights (WCAG AA verified)
+   Type:    Fira Sans / Fira Code with offline system fallbacks
+            (no webfont fetch — this file must work offline)
+   ============================================================ */
+:root{
+  --f-body:"Fira Sans","Segoe UI",-apple-system,Roboto,"Helvetica Neue",Arial,sans-serif;
+  --f-mono:"Fira Code",ui-monospace,"Cascadia Mono","SF Mono",Consolas,"Liberation Mono",monospace;
+
+  --bg:#F8FAFC;
+  --surface:#FFFFFF;
+  --surface-2:#F1F5F9;
+  --muted:#E9EEF6;
+  --border:#DBEAFE;
+  --border-strong:#C3D6F5;
+
+  --text:#0F172A;
+  --text-dim:#475569;
+  --heading:#1E3A8A;
+
+  --primary:#1E40AF;
+  --primary-hover:#1B368F;
+  --primary-text:#1E40AF;
+  --on-primary:#FFFFFF;
+  --primary-soft:#E6EDFB;
+
+  --accent:#D97706;
+  --accent-soft:#FEF3C7;
+  --accent-text:#92500E;
+
+  --danger:#DC2626;
+  --danger-soft:#FEE2E2;
+  --danger-text:#B91C1C;
+
+  --success:#047857;
+  --success-soft:#D1FAE5;
+
+  --ring:#1E40AF;
+  --shadow-sm:0 1px 2px rgba(15,23,42,.06),0 1px 3px rgba(15,23,42,.08);
+  --shadow-md:0 6px 18px rgba(15,23,42,.10);
+  --shadow-lg:0 18px 50px rgba(15,23,42,.24);
+
+  --r-sm:6px; --r-md:10px; --r-lg:14px;
+  --t-fast:140ms; --t-mid:220ms;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#0B1220;
+    --surface:#111A2B;
+    --surface-2:#16223A;
+    --muted:#1B2942;
+    --border:#22314F;
+    --border-strong:#2E4068;
+
+    --text:#E8EEF9;
+    --text-dim:#A3B5D0;
+    --heading:#C3D8FF;
+
+    --primary:#2D5BD8;
+    --primary-hover:#3E6EEC;
+    --primary-text:#9CC2FF;
+    --on-primary:#FFFFFF;
+    --primary-soft:#17233D;
+
+    --accent:#FBBF24;
+    --accent-soft:#33280B;
+    --accent-text:#FBBF24;
+
+    --danger:#EF4444;
+    --danger-soft:#3A1718;
+    --danger-text:#FCA5A5;
+
+    --success:#34D399;
+    --success-soft:#0C2D22;
+
+    --ring:#7DAAFF;
+    --shadow-sm:0 1px 2px rgba(0,0,0,.4);
+    --shadow-md:0 6px 18px rgba(0,0,0,.45);
+    --shadow-lg:0 18px 50px rgba(0,0,0,.6);
+  }
+}
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--text);font:400 16px/1.55 var(--f-body)}
+[hidden]{display:none!important}
+h1,h2,h3,h4{margin:0;color:var(--heading);font-family:var(--f-mono);font-weight:600;letter-spacing:-.01em}
+h1{font-size:19px}
+h2{font-size:16px}
+h3{font-size:15px}
+p{margin:0}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.wrap{max-width:1320px;margin:0 auto;padding:0 16px}
+@media (min-width:1024px){.wrap{padding:0 24px}}
+.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+:is(a,button,input,select,textarea,[tabindex]):focus-visible{outline:2px solid var(--ring);outline-offset:2px;border-radius:var(--r-sm)}
+
+.skip{position:absolute;left:16px;top:-48px;z-index:1200;background:var(--primary);color:var(--on-primary);
+  padding:10px 14px;border-radius:var(--r-sm);text-decoration:none;transition:top var(--t-fast) ease-out}
+.skip:focus{top:12px}
+
+/* ---------- header ---------- */
+.app-head{position:sticky;top:0;z-index:100;background:var(--surface);border-bottom:1px solid var(--border);box-shadow:var(--shadow-sm)}
+.head-inner{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding-top:10px;padding-bottom:10px}
+.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.brand-mark{display:grid;place-items:center;width:36px;height:36px;flex:0 0 36px;border-radius:var(--r-md);background:var(--primary);color:var(--on-primary)}
+.brand-mark .ico{width:21px;height:21px}
+.brand-sub{color:var(--text-dim);font-size:12px;line-height:1.3}
+.tabs{display:flex;gap:4px;padding:4px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-md)}
+.tab{display:inline-flex;align-items:center;gap:7px;min-height:38px;padding:0 14px;border:0;border-radius:var(--r-sm);
+  background:transparent;color:var(--text-dim);font:500 14px/1 var(--f-body);cursor:pointer;
+  transition:background var(--t-fast) ease-out,color var(--t-fast) ease-out}
+.tab .ico{width:17px;height:17px}
+.tab:hover{background:var(--muted);color:var(--text)}
+.tab[aria-selected="true"]{background:var(--surface);color:var(--primary-text);box-shadow:var(--shadow-sm);font-weight:600}
+@media (max-width:820px){.tabs{width:100%;flex-wrap:wrap}.tab{flex:1 1 28%;justify-content:center;min-height:44px}}
+
+/* ---------- blocks ---------- */
+main{padding:20px 0 64px}
+.panel{display:grid;gap:16px}
+.panel > *{min-width:0}          /* grid children must be allowed to shrink below min-content */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--shadow-sm)}
+.card-head{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:baseline;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border)}
+.card-head .hint{color:var(--text-dim);font-size:12.5px}
+.card-body{padding:16px}
+.card-body.tight{padding:0}
+
+/* ---------- stat tiles ---------- */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:12px;margin:0}
+.stat{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--primary);
+  border-radius:var(--r-md);padding:12px 14px;box-shadow:var(--shadow-sm)}
+.stat.is-accent{border-left-color:var(--accent)}
+.stat.is-danger{border-left-color:var(--danger)}
+.stat dt{color:var(--text-dim);font-size:11.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+.stat dd{margin:4px 0 0;font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-size:22px;font-weight:600;color:var(--heading)}
+.stat .sub{display:block;margin-top:2px;font:400 12px/1.4 var(--f-body);color:var(--text-dim)}
+
+/* ---------- forms ---------- */
+.grid-form{display:grid;gap:14px 12px;grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+.fld{display:flex;flex-direction:column;gap:5px;min-width:0}
+.fld.span2{grid-column:span 2}
+@media (max-width:640px){.fld.span2{grid-column:span 1}}
+.fld > label,.lbl{color:var(--text-dim);font-size:11.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase}
+.req{color:var(--danger-text)}
+input,select{width:100%;min-width:0;min-height:42px;padding:8px 10px;background:var(--surface);color:var(--text);
+  border:1px solid var(--border-strong);border-radius:var(--r-sm);font:400 15px/1.3 var(--f-body);
+  transition:border-color var(--t-fast) ease-out,box-shadow var(--t-fast) ease-out}
+input[type=number]{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+input:hover:not(:disabled),select:hover:not(:disabled){border-color:var(--primary)}
+input:disabled,select:disabled{background:var(--surface-2);color:var(--text-dim);opacity:.62;cursor:not-allowed}
+select{cursor:pointer;appearance:none;padding-right:30px;
+  background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);
+  background-position:calc(100% - 16px) calc(50% + 2px),calc(100% - 11px) calc(50% + 2px);
+  background-size:5px 5px,5px 5px;background-repeat:no-repeat}
+.help{color:var(--text-dim);font-size:12px}
+.err{display:none;color:var(--danger-text);font-size:12px;font-weight:500}
+.fld.invalid input,.fld.invalid select{border-color:var(--danger);box-shadow:0 0 0 3px var(--danger-soft)}
+.fld.invalid .err{display:block}
+.unit-pair{display:grid;grid-template-columns:1fr 94px;gap:6px}
+.derived{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:14px;padding:9px 12px;
+  background:var(--primary-soft);border:1px dashed var(--border-strong);border-radius:var(--r-sm);font-size:13px}
+.derived b{font-family:var(--f-mono);font-variant-numeric:tabular-nums;color:var(--primary-text);font-size:14px}
+.form-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)}
+
+/* ---------- buttons ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:42px;padding:0 16px;
+  border:1px solid transparent;border-radius:var(--r-sm);background:var(--primary);color:var(--on-primary);
+  font:600 14.5px/1 var(--f-body);cursor:pointer;
+  transition:background var(--t-fast) ease-out,border-color var(--t-fast) ease-out,color var(--t-fast) ease-out}
+.btn .ico{width:17px;height:17px}
+.btn:hover{background:var(--primary-hover)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn-ghost{background:transparent;border-color:var(--border-strong);color:var(--text)}
+.btn-ghost:hover{background:var(--muted);border-color:var(--primary)}
+.btn-accent{background:var(--accent);color:#1A1204}
+.btn-accent:hover{background:var(--accent);filter:brightness(1.08)}
+.btn-danger{background:transparent;border-color:var(--danger);color:var(--danger-text)}
+.btn-danger:hover{background:var(--danger-soft)}
+.btn-sm{min-height:34px;padding:0 11px;font-size:13.5px}
+.btn-icon{display:inline-grid;place-items:center;width:34px;height:34px;padding:0;border:1px solid var(--border-strong);
+  border-radius:var(--r-sm);background:var(--surface);color:var(--text-dim);cursor:pointer;
+  transition:background var(--t-fast) ease-out,color var(--t-fast) ease-out,border-color var(--t-fast) ease-out}
+.btn-icon .ico{width:16px;height:16px}
+.btn-icon:hover{background:var(--muted);color:var(--primary-text);border-color:var(--primary)}
+.btn-icon.danger:hover{background:var(--danger-soft);color:var(--danger-text);border-color:var(--danger)}
+@media (max-width:768px){.btn-icon{width:44px;height:44px}.btn-sm{min-height:44px}}
+.ico{width:18px;height:18px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* ---------- toolbar ---------- */
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:end;padding:12px 16px;
+  border-bottom:1px solid var(--border);background:var(--surface-2);border-radius:var(--r-lg) var(--r-lg) 0 0}
+.toolbar .fld{flex:1 1 200px}
+.search{position:relative}
+.search .ico{position:absolute;left:10px;top:34px;color:var(--text-dim);pointer-events:none}
+.search input{padding-left:34px}
+
+/* ---------- tables ---------- */
+.table-wrap{min-width:0;overflow-x:auto;-webkit-overflow-scrolling:touch}   /* wide tables scroll here, never on the page */
+table{width:100%;border-collapse:collapse;font-size:14px}
+thead th{position:sticky;top:0;z-index:1;background:var(--surface-2);color:var(--text-dim);
+  font:600 11.5px/1.3 var(--f-body);letter-spacing:.05em;text-transform:uppercase;text-align:left;
+  padding:10px 12px;border-bottom:1px solid var(--border-strong);white-space:nowrap}
+tbody td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+tbody tr{transition:background var(--t-fast) ease-out}
+tbody tr:hover{background:var(--surface-2)}
+tbody tr:last-child td{border-bottom:0}
+td.r,th.r{text-align:right}
+td.r{font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.cell-name{font-weight:600;color:var(--text)}
+.cell-sub{display:block;color:var(--text-dim);font-size:12px;font-weight:400}
+.row-acts{display:flex;gap:6px;justify-content:flex-end}
+.stock-cell{display:flex;align-items:center;justify-content:flex-end;gap:6px;white-space:nowrap}
+.stock-cell .u{color:var(--text-dim);font-size:12px;font-family:var(--f-mono)}
+.stock-edit{width:110px;min-height:34px;padding:5px 8px;text-align:right;font-size:13.5px}
+@media (max-width:768px){.stock-edit{min-height:44px;width:118px}}
+
+/* ---------- chips ---------- */
+.chip{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:999px;
+  background:var(--muted);color:var(--text-dim);font-size:12px;font-weight:600;white-space:nowrap}
+.chip.blue{background:var(--primary-soft);color:var(--primary-text)}
+.chip.amber{background:var(--accent-soft);color:var(--accent-text)}
+.chip.red{background:var(--danger-soft);color:var(--danger-text)}
+.chip.green{background:var(--success-soft);color:var(--success)}
+.chip .ico{width:13px;height:13px}
+
+/* ---------- empty state ---------- */
+.empty{display:grid;justify-items:center;gap:8px;padding:44px 20px;text-align:center}
+.empty .ico{width:30px;height:30px;color:var(--text-dim);opacity:.75}
+.empty h3{color:var(--text)}
+.empty p{color:var(--text-dim);font-size:13.5px;max-width:46ch}
+
+/* ---------- ingredient rows ---------- */
+.ing-head,.ing-row{display:grid;gap:8px;align-items:start;
+  grid-template-columns:minmax(150px,2.1fr) 96px 94px minmax(96px,1fr) minmax(96px,1fr) 34px}
+.ing-head{padding:0 10px 6px;color:var(--text-dim);font-size:11.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase}
+.ing-head span:nth-child(n+4){text-align:right}
+.ing-rows{display:grid;gap:10px}
+.ing-row{padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-md)}
+.ing-row .ro{display:flex;align-items:center;justify-content:flex-end;min-height:42px;
+  font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-size:13.5px;color:var(--text-dim);white-space:nowrap}
+.ing-row .ro.cost{color:var(--text);font-weight:600;font-size:14.5px}
+.ing-row .fld > label{display:none}
+@media (max-width:860px){
+  .ing-head{display:none}
+  .ing-row{grid-template-columns:1fr 1fr}
+  .ing-row .fld > label{display:block}
+  .ing-row .ing-item{grid-column:span 2}
+  .ing-row .ro{justify-content:space-between;min-height:34px;padding-top:8px;border-top:1px dashed var(--border-strong)}
+  .ing-row .ro::before{content:attr(data-label);color:var(--text-dim);font:600 11.5px/1 var(--f-body);letter-spacing:.05em;text-transform:uppercase}
+  .ing-row .btn-icon{grid-column:span 2;width:100%}
+}
+
+/* ---------- cost summary ---------- */
+.summary{display:grid;margin-top:16px;border:1px solid var(--border-strong);border-radius:var(--r-md);overflow:hidden}
+.summary .row{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:9px 14px;
+  background:var(--surface);border-bottom:1px solid var(--border);font-size:14px}
+.summary .row:last-child{border-bottom:0}
+.summary .row .k{color:var(--text-dim)}
+.summary .row .v{font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-weight:600}
+.summary .row.sub,.summary .row.total{background:var(--surface-2)}
+.summary .row.total .k{color:var(--text);font-weight:600}
+.summary .row.hero{background:var(--accent-soft);border-top:1px solid var(--accent)}
+.summary .row.hero .k{color:var(--accent-text);font:700 12px/1.4 var(--f-body);letter-spacing:.04em;text-transform:uppercase}
+.summary .row.hero .v{color:var(--accent-text);font-size:22px}
+
+/* ---------- recipe cards ---------- */
+.recipes{display:grid;gap:14px}
+.rc-head{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border)}
+.rc-title{display:grid;gap:6px;min-width:0}
+.rc-meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;color:var(--text-dim);font-size:12.5px}
+.rc-acts{display:flex;flex-wrap:wrap;gap:6px}
+.rc-grid{display:grid;grid-template-columns:1fr}
+.rc-grid > *{min-width:0}
+@media (min-width:1000px){.rc-grid{grid-template-columns:minmax(0,1.55fr) minmax(310px,1fr)}.rc-break{border-right:1px solid var(--border)}}
+@media (max-width:999px){.rc-break{border-bottom:1px solid var(--border)}}
+.rc-side{padding:14px 16px;display:grid;gap:12px;align-content:start}
+.rc-side .summary{margin-top:0}
+.cooklog{display:grid;gap:5px;font-size:12.5px;color:var(--text-dim)}
+.cooklog ul{margin:0;padding:0;display:grid;gap:4px}
+.cooklog li{display:flex;gap:7px;align-items:center;list-style:none;font-family:var(--f-mono);font-size:12px}
+.cooklog .ico{width:13px;height:13px;color:var(--success)}
+.warn-line{display:flex;gap:8px;align-items:flex-start;padding:9px 11px;border-radius:var(--r-sm);
+  background:var(--danger-soft);color:var(--danger-text);font-size:12.5px;font-weight:500}
+.warn-line .ico{width:15px;height:15px;margin-top:1px}
+
+/* ---------- P&L statement ---------- */
+.summary.pnl .row.deduct .k::before{content:"less ";color:var(--text-dim);font-size:12px}
+.summary .row.rule{background:var(--surface-2);border-top:2px solid var(--border-strong)}
+.summary .row.rule .k{font-weight:700;color:var(--text)}
+.summary .row.pct{background:var(--surface)}
+.summary .row.pct .v{color:var(--primary-text)}
+.summary .row.neg .v{color:var(--danger-text)}
+.summary .row.indent .k{padding-left:14px;font-size:13px}
+.pnl-caveat{display:flex;gap:8px;align-items:flex-start;margin-top:12px;padding:10px 12px;
+  border:1px dashed var(--border-strong);border-radius:var(--r-sm);
+  color:var(--text-dim);font-size:12.5px;line-height:1.5}
+.pnl-caveat .ico{width:15px;height:15px;margin-top:2px;color:var(--accent-text)}
+
+/* ---------- day navigation ---------- */
+.day-nav{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.day-nav .btn-icon{margin-bottom:1px}
+
+/* ---------- attendance calendar ---------- */
+.cal-legend{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.dot{width:8px;height:8px;border-radius:50%;flex:0 0 8px}
+.dot-def{background:var(--success)}
+.dot-ovr{background:var(--danger)}
+.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.cal-head{margin-bottom:6px;color:var(--text-dim);font-size:11.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;text-align:center}
+.cal-day{display:grid;gap:2px;align-content:start;min-height:62px;padding:6px;cursor:pointer;
+  border:1px solid var(--border);border-left:3px solid var(--success);border-radius:var(--r-sm);
+  background:var(--surface);color:var(--text);font:inherit;text-align:left;
+  transition:background var(--t-fast) ease-out,border-color var(--t-fast) ease-out}
+.cal-day:hover{background:var(--surface-2);border-color:var(--primary)}
+.cal-day .d{font-family:var(--f-mono);font-size:12px;font-weight:600;color:var(--text-dim)}
+.cal-day .amt{font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-size:12.5px;font-weight:600}
+.cal-day .tag{font-size:10.5px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;color:var(--text-dim)}
+.cal-day.is-override{border-left-color:var(--danger);background:var(--danger-soft)}
+.cal-day.is-override .amt,.cal-day.is-override .tag{color:var(--danger-text)}
+.cal-day.is-today{outline:2px solid var(--primary);outline-offset:-1px}
+.cal-day.is-future{opacity:.55}
+.cal-day.pad{visibility:hidden;pointer-events:none}
+@media (max-width:640px){.cal-day{min-height:56px;padding:4px}.cal-day .tag{display:none}}
+
+/* ---------- modal ---------- */
+.scrim{position:fixed;inset:0;z-index:900;display:grid;place-items:center;padding:16px;
+  background:rgba(8,15,30,.55);animation:fade var(--t-mid) ease-out}
+.modal{width:min(520px,100%);max-height:86vh;overflow:auto;background:var(--surface);
+  border:1px solid var(--border-strong);border-radius:var(--r-lg);box-shadow:var(--shadow-lg);
+  animation:pop var(--t-mid) cubic-bezier(.2,.9,.3,1)}
+.modal-head{display:flex;gap:10px;align-items:center;padding:16px 18px 0}
+.modal-head .ico{width:20px;height:20px;color:var(--primary-text)}
+.modal.danger .modal-head .ico{color:var(--danger-text)}
+.modal-body{padding:10px 18px 4px;color:var(--text-dim);font-size:14px;display:grid;gap:10px}
+.modal-body strong{color:var(--text)}
+.modal-body .kv{display:flex;justify-content:space-between;gap:12px;padding:4px 0;border-bottom:1px dashed var(--border);
+  font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-size:13px;color:var(--text)}
+.modal-body .kv .neg{color:var(--danger-text);font-weight:600}
+.modal-acts{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;padding:16px 18px}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes pop{from{opacity:0;transform:translateY(8px) scale(.985)}to{opacity:1;transform:none}}
+
+/* ---------- toasts ---------- */
+.toasts{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:1000;
+  display:grid;gap:8px;width:min(440px,calc(100% - 32px));pointer-events:none}
+.toast{display:flex;gap:9px;align-items:flex-start;padding:11px 13px;border-radius:var(--r-md);
+  background:var(--surface);border:1px solid var(--border-strong);border-left:3px solid var(--primary);
+  box-shadow:var(--shadow-md);font-size:13.5px;animation:slide var(--t-mid) cubic-bezier(.2,.9,.3,1)}
+.toast.ok{border-left-color:var(--success)}
+.toast.ok .ico{color:var(--success)}
+.toast.err{border-left-color:var(--danger)}
+.toast.err .ico{color:var(--danger-text)}
+.toast .ico{width:16px;height:16px;margin-top:1px;color:var(--primary-text)}
+@keyframes slide{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to main content</a>
+
+<svg width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute">
+  <defs>
+    <symbol id="i-galley" viewBox="0 0 24 24"><path d="M4 3h16"/><path d="M6 3v5a6 6 0 0 0 12 0V3"/><path d="M12 14v7"/><path d="M8 21h8"/></symbol>
+    <symbol id="i-box" viewBox="0 0 24 24"><path d="M21 8v8a2 2 0 0 1-1 1.73l-7 4a2 2 0 0 1-2 0l-7-4A2 2 0 0 1 3 16V8a2 2 0 0 1 1-1.73l7-4a2 2 0 0 1 2 0l7 4A2 2 0 0 1 21 8z"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M8 7h8"/><path d="M8 11h5"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></symbol>
+    <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></symbol>
+    <symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 2s4 4.5 4 8a4 4 0 0 1-8 0c0-1 .5-2 .5-2S6 11 6 14a6 6 0 0 0 12 0c0-5-6-12-6-12z"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.2 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.2a2 2 0 0 0-3.4 0z"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 8.9 19a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 5 8.9a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9.6a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9.6a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+    <symbol id="i-receipt" viewBox="0 0 24 24"><path d="M4 2h16v20l-3-2-3 2-2-1.5L10 22l-3-2-3 2z"/><path d="M8 7h8"/><path d="M8 11h8"/><path d="M8 15h5"/></symbol>
+    <symbol id="i-spray" viewBox="0 0 24 24"><path d="M9 11h6a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z"/><path d="M9 11V4a2 2 0 0 1 2-2h2"/><path d="M19 4h.01"/><path d="M21 7h.01"/><path d="M19 10h.01"/></symbol>
+    <symbol id="i-truck" viewBox="0 0 24 24"><path d="M10 17h4V5H2v12h3"/><path d="M14 9h4l3 3v5h-2"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></symbol>
+    <symbol id="i-day" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="M4.9 4.9l1.4 1.4"/><path d="M17.7 17.7l1.4 1.4"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="M6.3 17.7l-1.4 1.4"/><path d="M19.1 4.9l-1.4 1.4"/></symbol>
+    <symbol id="i-people" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></symbol>
+    <symbol id="i-chev-left" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></symbol>
+    <symbol id="i-chev-right" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></symbol>
+    <symbol id="i-rupee" viewBox="0 0 24 24"><path d="M6 4h12"/><path d="M6 9h12"/><path d="M15 4c0 5-3 5-9 5"/><path d="M8 9l7 11"/></symbol>
+  </defs>
+</svg>
+
+<header class="app-head">
+  <div class="wrap head-inner">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"><svg class="ico"><use href="#i-galley"/></svg></span>
+      <div>
+        <h1>Galley</h1>
+        <p class="brand-sub">Inventory &amp; recipe costing &middot; saved in this browser</p>
+      </div>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="Sections">
+      <button class="tab" type="button" role="tab" id="tab-inventory" aria-controls="panel-inventory" aria-selected="true" data-view="inventory">
+        <svg class="ico" aria-hidden="true"><use href="#i-box"/></svg>Inventory
+      </button>
+      <button class="tab" type="button" role="tab" id="tab-recipes" aria-controls="panel-recipes" aria-selected="false" tabindex="-1" data-view="recipes">
+        <svg class="ico" aria-hidden="true"><use href="#i-book"/></svg>Recipes
+      </button>
+      <button class="tab" type="button" role="tab" id="tab-staff" aria-controls="panel-staff" aria-selected="false" tabindex="-1" data-view="staff">
+        <svg class="ico" aria-hidden="true"><use href="#i-people"/></svg>Staff
+      </button>
+      <button class="tab" type="button" role="tab" id="tab-daily" aria-controls="panel-daily" aria-selected="false" tabindex="-1" data-view="daily">
+        <svg class="ico" aria-hidden="true"><use href="#i-day"/></svg>Daily
+      </button>
+      <button class="tab" type="button" role="tab" id="tab-settings" aria-controls="panel-settings" aria-selected="false" tabindex="-1" data-view="settings">
+        <svg class="ico" aria-hidden="true"><use href="#i-gear"/></svg>Settings
+      </button>
+    </nav>
+  </div>
+</header>
+
+<main id="main" class="wrap">
+
+  <!-- ==================== PART A — INVENTORY MASTER ==================== -->
+  <section class="panel" id="panel-inventory" role="tabpanel" aria-labelledby="tab-inventory" tabindex="-1">
+
+    <dl class="stats" id="inv-stats"></dl>
+
+    <div class="card">
+      <div class="card-head">
+        <h2 id="item-form-title">Add inventory item</h2>
+        <p class="hint">Cost per base unit is computed from the purchase you enter.</p>
+      </div>
+      <div class="card-body">
+        <form id="item-form" novalidate>
+          <div class="grid-form">
+            <div class="fld span2" data-fld="name">
+              <label for="it-name">Item name <span class="req" aria-hidden="true">*</span></label>
+              <input id="it-name" type="text" autocomplete="off" placeholder="Name it exactly as you buy it">
+              <p class="err" id="err-name" role="alert"></p>
+            </div>
+            <div class="fld" data-fld="category">
+              <label for="it-cat">Category</label>
+              <select id="it-cat">
+                <option value="Raw Material">Raw Material</option>
+                <option value="Packaging">Packaging</option>
+                <option value="Sanitation &amp; Disposables">Sanitation &amp; Disposables</option>
+                <option value="Other">Other</option>
+              </select>
+              <p class="help">Fixed list — sanitation costs are matched on this tag.</p>
+            </div>
+            <div class="fld" data-fld="unitType">
+              <label for="it-type">Measured by</label>
+              <select id="it-type">
+                <option value="weight">Weight (g / kg)</option>
+                <option value="volume">Volume (mL / L)</option>
+                <option value="count">Count (pieces)</option>
+              </select>
+              <p class="help" id="base-hint">Base unit: g</p>
+            </div>
+            <div class="fld" data-fld="purchase">
+              <label for="it-pqty">Quantity purchased <span class="req" aria-hidden="true">*</span></label>
+              <div class="unit-pair">
+                <input id="it-pqty" type="number" min="0" step="any" inputmode="decimal" placeholder="0">
+                <select id="it-punit" aria-label="Unit of quantity purchased"></select>
+              </div>
+              <p class="err" id="err-purchase" role="alert"></p>
+            </div>
+            <div class="fld" data-fld="price">
+              <label for="it-price">Total price paid (&#8377;) <span class="req" aria-hidden="true">*</span></label>
+              <input id="it-price" type="number" min="0" step="any" inputmode="decimal" placeholder="0.00">
+              <p class="err" id="err-price" role="alert"></p>
+            </div>
+            <div class="fld" data-fld="stock">
+              <label for="it-stock">Current stock <span id="stock-unit-lbl">(g)</span></label>
+              <input id="it-stock" type="number" step="any" inputmode="decimal" placeholder="0">
+              <p class="help">In the base unit. Editable later from the table.</p>
+            </div>
+            <div class="fld" data-fld="pdate">
+              <label for="it-pdate">Purchase date</label>
+              <input id="it-pdate" type="date">
+              <p class="help">Which day this purchase belongs to.</p>
+              <p class="err" id="err-pdate" role="alert"></p>
+            </div>
+            <div class="fld gst-only" data-fld="itgst" hidden>
+              <label for="it-gst">GST applicable</label>
+              <select id="it-gst">
+                <option value="0">No — exempt</option>
+                <option value="1">Yes</option>
+              </select>
+              <p class="help">Per item — some items are exempt, others are not.</p>
+            </div>
+            <div class="fld gst-only" data-fld="itgstrate" hidden>
+              <label for="it-gstrate">GST rate (%)</label>
+              <input id="it-gstrate" type="number" min="0" step="any" inputmode="decimal" placeholder="0">
+              <p class="help">Treated as included in the price paid.</p>
+              <p class="err" id="err-itgstrate" role="alert"></p>
+            </div>
+          </div>
+          <p class="derived" aria-live="polite">
+            <svg class="ico" aria-hidden="true" style="width:15px;height:15px"><use href="#i-rupee"/></svg>
+            <span>Cost per base unit:</span> <b id="derived-val">&mdash;</b>
+          </p>
+          <div class="form-actions">
+            <button class="btn" type="submit">
+              <svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg><span id="item-submit-label">Add item</span>
+            </button>
+            <button class="btn btn-ghost" type="button" id="item-cancel" hidden>Cancel edit</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="toolbar">
+        <div class="fld search">
+          <label for="inv-q">Search items</label>
+          <svg class="ico" aria-hidden="true"><use href="#i-search"/></svg>
+          <input id="inv-q" type="search" placeholder="Search by name" autocomplete="off">
+        </div>
+        <div class="fld" style="flex:0 1 230px">
+          <label for="inv-cat">Filter by category</label>
+          <select id="inv-cat"><option value="">All categories</option></select>
+        </div>
+      </div>
+      <div class="card-body tight">
+        <div class="table-wrap">
+          <table>
+            <caption class="sr-only">Inventory items with purchase details, computed unit cost and current stock</caption>
+            <thead>
+              <tr>
+                <th scope="col">Item</th>
+                <th scope="col">Category</th>
+                <th scope="col">Purchase</th>
+                <th scope="col" class="r">Cost / base unit</th>
+                <th scope="col" class="r">Current stock</th>
+                <th scope="col" class="r">Stock value</th>
+                <th scope="col"><span class="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody id="inv-body"></tbody>
+          </table>
+        </div>
+        <div id="inv-empty" class="empty" hidden>
+          <svg class="ico" aria-hidden="true"><use href="#i-box"/></svg>
+          <h3>No inventory items yet</h3>
+          <p>Add your first item above — enter one purchase and Galley works out the cost per gram, millilitre or piece.</p>
+        </div>
+        <div id="inv-nomatch" class="empty" hidden>
+          <svg class="ico" aria-hidden="true"><use href="#i-search"/></svg>
+          <h3>No items match this filter</h3>
+          <p>Try a different search term or category.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== PART B — RECIPE BUILDER ==================== -->
+  <section class="panel" id="panel-recipes" role="tabpanel" aria-labelledby="tab-recipes" tabindex="-1" hidden>
+
+    <dl class="stats" id="rec-stats"></dl>
+
+    <div class="card">
+      <div class="card-head">
+        <h2 id="recipe-form-title">Build a recipe</h2>
+        <p class="hint">Pick ingredients from your inventory — costs update as you type.</p>
+      </div>
+      <div class="card-body">
+        <form id="recipe-form" novalidate>
+          <div class="grid-form">
+            <div class="fld span2" data-fld="rname">
+              <label for="rc-name">Recipe / menu item name <span class="req" aria-hidden="true">*</span></label>
+              <input id="rc-name" type="text" autocomplete="off" placeholder="e.g. dish name and portion">
+              <p class="err" id="err-rname" role="alert"></p>
+            </div>
+            <div class="fld" data-fld="rcat">
+              <label for="rc-cat">Category</label>
+              <input id="rc-cat" type="text" list="dl-rcats" autocomplete="off" placeholder="e.g. menu section">
+              <datalist id="dl-rcats"></datalist>
+            </div>
+            <div class="fld" data-fld="batch">
+              <label for="rc-bqty">Batch size <span class="req" aria-hidden="true">*</span></label>
+              <div class="unit-pair">
+                <input id="rc-bqty" type="number" min="0" step="any" inputmode="decimal" placeholder="0">
+                <input id="rc-bunit" type="text" list="dl-bunits" autocomplete="off" placeholder="kg" aria-label="Batch size unit">
+                <datalist id="dl-bunits"></datalist>
+              </div>
+              <p class="err" id="err-batch" role="alert"></p>
+            </div>
+            <div class="fld" data-fld="yield">
+              <label for="rc-yield">Yield — servings per batch <span class="req" aria-hidden="true">*</span></label>
+              <div class="unit-pair">
+                <input id="rc-yield" type="number" min="0" step="any" inputmode="decimal" placeholder="0">
+                <input id="rc-sname" type="text" list="dl-snames" autocomplete="off" placeholder="plates" aria-label="What one serving is called">
+                <datalist id="dl-snames"></datalist>
+              </div>
+              <p class="err" id="err-yield" role="alert"></p>
+            </div>
+            <div class="fld" data-fld="wastage">
+              <label for="rc-wast">Wastage / prep loss (%)</label>
+              <input id="rc-wast" type="number" min="0" step="any" inputmode="decimal" value="0">
+              <p class="help">Raises effective cost by this much.</p>
+            </div>
+            <div class="fld" data-fld="menuprice">
+              <label for="rc-price">Menu price (&#8377;)</label>
+              <input id="rc-price" type="number" min="0" step="any" inputmode="decimal" placeholder="0.00">
+              <p class="help">Selling price per serving. Not part of the cost math.</p>
+              <p class="err" id="err-menuprice" role="alert"></p>
+            </div>
+          </div>
+
+          <div style="margin-top:20px">
+            <div class="card-head" style="padding:0 0 10px;border-bottom:1px solid var(--border)">
+              <h3>Ingredients</h3>
+              <p class="hint" id="ing-hint"></p>
+            </div>
+            <div style="padding-top:12px">
+              <div class="ing-head" aria-hidden="true">
+                <span>Inventory item</span><span>Qty used</span><span>Unit</span><span>Rate</span><span>Line cost</span><span></span>
+              </div>
+              <div class="ing-rows" id="ing-rows"></div>
+              <datalist id="dl-items"></datalist>
+              <p class="err" id="err-ings" role="alert" style="margin-top:8px"></p>
+              <button class="btn btn-ghost btn-sm" type="button" id="ing-add" style="margin-top:12px">
+                <svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg>Add ingredient
+              </button>
+            </div>
+          </div>
+
+          <div class="summary" id="builder-summary" aria-live="polite"></div>
+
+          <div class="form-actions">
+            <button class="btn" type="submit">
+              <svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg><span id="recipe-submit-label">Save recipe</span>
+            </button>
+            <button class="btn btn-ghost" type="button" id="recipe-cancel" hidden>Cancel edit</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="toolbar">
+        <div class="fld search">
+          <label for="rec-q">Search recipes</label>
+          <svg class="ico" aria-hidden="true"><use href="#i-search"/></svg>
+          <input id="rec-q" type="search" placeholder="Search by name" autocomplete="off">
+        </div>
+        <div class="fld" style="flex:0 1 230px">
+          <label for="rec-cat">Filter by category</label>
+          <select id="rec-cat"><option value="">All categories</option></select>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="recipes" id="rec-list"></div>
+        <div id="rec-empty" class="empty" hidden>
+          <svg class="ico" aria-hidden="true"><use href="#i-book"/></svg>
+          <h3>No recipes yet</h3>
+          <p>Build one above. Galley shows a full cost breakdown per batch and per serving, and can deduct a cooked batch from stock.</p>
+        </div>
+        <div id="rec-nomatch" class="empty" hidden>
+          <svg class="ico" aria-hidden="true"><use href="#i-search"/></svg>
+          <h3>No recipes match this filter</h3>
+          <p>Try a different search term or category.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== STAFF MASTER + ATTENDANCE ==================== -->
+  <section class="panel" id="panel-staff" role="tabpanel" aria-labelledby="tab-staff" tabindex="-1" hidden>
+
+    <dl class="stats" id="staff-stats"></dl>
+
+    <div class="card">
+      <div class="card-head">
+        <h2 id="staff-form-title">Add staff member</h2>
+        <p class="hint">Daily cost is derived from the pay basis unless a day is overridden.</p>
+      </div>
+      <div class="card-body">
+        <form id="staff-form" novalidate>
+          <div class="grid-form">
+            <div class="fld span2" data-fld="sname">
+              <label for="st-name">Name <span class="req" aria-hidden="true">*</span></label>
+              <input id="st-name" type="text" autocomplete="off" placeholder="Staff member's name">
+              <p class="err" id="err-sname" role="alert"></p>
+            </div>
+            <div class="fld" data-fld="sbasis">
+              <label for="st-basis">Pay basis</label>
+              <select id="st-basis">
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+              </select>
+              <p class="help" id="basis-hint">Rate is paid per day.</p>
+            </div>
+            <div class="fld" data-fld="srate">
+              <label for="st-rate">Rate (&#8377;) <span class="req" aria-hidden="true">*</span></label>
+              <input id="st-rate" type="number" min="0" step="any" inputmode="decimal" placeholder="0.00">
+              <p class="err" id="err-srate" role="alert"></p>
+            </div>
+            <div class="fld" data-fld="sactive">
+              <label for="st-active">Status</label>
+              <select id="st-active">
+                <option value="1">Active</option>
+                <option value="0">Inactive</option>
+              </select>
+              <p class="help">Inactive staff stop accruing cost from the day you change it.</p>
+            </div>
+          </div>
+          <p class="derived" aria-live="polite">
+            <svg class="ico" aria-hidden="true" style="width:15px;height:15px"><use href="#i-rupee"/></svg>
+            <span>Default cost per day:</span> <b id="st-derived">&mdash;</b>
+          </p>
+          <div class="form-actions">
+            <button class="btn" type="submit">
+              <svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg><span id="staff-submit-label">Add staff member</span>
+            </button>
+            <button class="btn btn-ghost" type="button" id="staff-cancel" hidden>Cancel edit</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>Day total</h2>
+        <p class="hint">Every active member's cost for one date — override if present, else the default.</p>
+      </div>
+      <div class="card-body">
+        <div class="grid-form" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
+          <div class="fld">
+            <label for="day-pick">Date</label>
+            <input id="day-pick" type="date">
+          </div>
+        </div>
+        <div class="summary" id="day-total" aria-live="polite"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body tight">
+        <div class="table-wrap">
+          <table>
+            <caption class="sr-only">Staff members with pay basis, default daily cost and month-to-date actual</caption>
+            <thead>
+              <tr>
+                <th scope="col">Name</th>
+                <th scope="col">Pay basis</th>
+                <th scope="col" class="r">Rate</th>
+                <th scope="col" class="r">Default / day</th>
+                <th scope="col" class="r">This month so far</th>
+                <th scope="col"><span class="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody id="staff-body"></tbody>
+          </table>
+        </div>
+        <div id="staff-empty" class="empty" hidden>
+          <svg class="ico" aria-hidden="true"><use href="#i-people"/></svg>
+          <h3>No staff added yet</h3>
+          <p>Add a staff member above. Their daily cost is derived from the pay basis, and any day can be overridden on the attendance calendar.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" id="cal-card" hidden>
+      <div class="card-head">
+        <h2 id="cal-title">Attendance</h2>
+        <div class="rc-acts">
+          <button class="btn-icon" type="button" id="cal-prev" aria-label="Previous month" title="Previous month"><svg class="ico" aria-hidden="true"><use href="#i-chev-left"/></svg></button>
+          <span class="chip blue" id="cal-month" style="min-width:132px;justify-content:center"></span>
+          <button class="btn-icon" type="button" id="cal-next" aria-label="Next month" title="Next month"><svg class="ico" aria-hidden="true"><use href="#i-chev-right"/></svg></button>
+          <button class="btn btn-ghost btn-sm" type="button" id="cal-close">Close</button>
+        </div>
+      </div>
+      <div class="card-body">
+        <p class="cal-legend">
+          <span class="chip green"><span class="dot dot-def"></span>default day</span>
+          <span class="chip red"><span class="dot dot-ovr"></span>overridden or absent</span>
+          <span class="chip">click any date to edit</span>
+        </p>
+        <div class="cal-grid cal-head" aria-hidden="true">
+          <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+        </div>
+        <div class="cal-grid" id="cal-days" role="grid" aria-labelledby="cal-title"></div>
+        <div class="summary" id="cal-summary"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== DAILY — SANITATION + TRANSPORT ==================== -->
+  <section class="panel" id="panel-daily" role="tabpanel" aria-labelledby="tab-daily" tabindex="-1" hidden>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>Day</h2>
+        <p class="hint">Costs below are for the date selected here.</p>
+      </div>
+      <div class="card-body">
+        <div class="day-nav">
+          <button class="btn-icon" type="button" id="d-prev" aria-label="Previous day" title="Previous day"><svg class="ico" aria-hidden="true"><use href="#i-chev-left"/></svg></button>
+          <div class="fld" style="flex:1 1 200px">
+            <label for="d-date">Date</label>
+            <input id="d-date" type="date">
+          </div>
+          <button class="btn-icon" type="button" id="d-next" aria-label="Next day" title="Next day"><svg class="ico" aria-hidden="true"><use href="#i-chev-right"/></svg></button>
+          <button class="btn btn-ghost btn-sm" type="button" id="d-today">Today</button>
+        </div>
+      </div>
+    </div>
+
+    <dl class="stats" id="daily-stats"></dl>
+
+    <div class="card">
+      <div class="card-head">
+        <h2 id="pnl-title">Daily profit &amp; loss</h2>
+        <p class="hint">Every line, not just the totals.</p>
+      </div>
+      <div class="card-body">
+        <div class="summary pnl" id="d-pnl" aria-live="polite"></div>
+        <p class="pnl-caveat">
+          <svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg>
+          <span>No depreciation, interest, or tax is currently modeled. Rent, utilities and
+          other fixed overheads are not captured either, so operating profit and net profit
+          are the same figure here — treat it as a day-level operating result, not a
+          statutory net profit.</span>
+        </p>
+        <div class="summary" id="d-gst" hidden></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>Sales</h2>
+        <p class="hint">Price defaults to the recipe's menu price and can be changed for this day.</p>
+      </div>
+      <div class="card-body">
+        <form id="sale-form" novalidate>
+          <div class="grid-form">
+            <div class="fld span2" data-fld="salerecipe">
+              <label for="sl-recipe">Recipe sold</label>
+              <select id="sl-recipe"></select>
+              <p class="err" id="err-salerecipe" role="alert"></p>
+            </div>
+            <div class="fld" data-fld="saleqty">
+              <label for="sl-qty">Quantity sold</label>
+              <input id="sl-qty" type="number" min="0" step="any" inputmode="decimal" placeholder="0">
+              <p class="err" id="err-saleqty" role="alert"></p>
+            </div>
+            <div class="fld" data-fld="saleprice">
+              <label for="sl-price">Price each (&#8377;)</label>
+              <input id="sl-price" type="number" min="0" step="any" inputmode="decimal" placeholder="0.00">
+              <p class="err" id="err-saleprice" role="alert"></p>
+            </div>
+            <div class="fld gst-only" data-fld="salegst" hidden>
+              <label for="sl-gst">GST applicable</label>
+              <select id="sl-gst">
+                <option value="0">No</option>
+                <option value="1">Yes</option>
+              </select>
+            </div>
+            <div class="fld gst-only" data-fld="salegstrate" hidden>
+              <label for="sl-gstrate">GST rate (%)</label>
+              <input id="sl-gstrate" type="number" min="0" step="any" inputmode="decimal" placeholder="0">
+              <p class="help">Treated as included in the price.</p>
+              <p class="err" id="err-salegstrate" role="alert"></p>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button class="btn" type="submit">
+              <svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg>Add sale
+            </button>
+          </div>
+        </form>
+      </div>
+      <div class="card-body tight">
+        <div class="table-wrap">
+          <table>
+            <caption class="sr-only">Sales logged for the selected date</caption>
+            <thead>
+              <tr>
+                <th scope="col">Recipe</th>
+                <th scope="col" class="r">Qty</th>
+                <th scope="col" class="r">Price</th>
+                <th scope="col" class="r">Revenue</th>
+                <th scope="col" class="r">Cost / serving</th>
+                <th scope="col" class="r">COGS</th>
+                <th scope="col"><span class="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody id="d-sales-body"></tbody>
+          </table>
+        </div>
+        <div id="d-sales-empty" class="empty" hidden>
+          <svg class="ico" aria-hidden="true"><use href="#i-book"/></svg>
+          <h3>No sales logged for this date</h3>
+          <p>Add what sold above. Revenue comes from quantity × price; COGS uses each recipe's cost per serving from the costing engine.</p>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="summary" id="d-sales-summary" aria-live="polite"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>Transport</h2>
+        <p class="hint">Two separate costs — entered and reported separately.</p>
+      </div>
+      <div class="card-body">
+        <div class="grid-form">
+          <div class="fld">
+            <label for="d-tdel">Inventory delivery transport (&#8377;)</label>
+            <input id="d-tdel" type="number" min="0" step="any" inputmode="decimal" placeholder="0.00">
+            <p class="help">Cost of getting inventory delivered.</p>
+          </div>
+          <div class="fld">
+            <label for="d-tlab">Transport labor (&#8377;)</label>
+            <input id="d-tlab" type="number" min="0" step="any" inputmode="decimal" placeholder="0.00">
+            <p class="help">Labor for loading/unloading, kept separate.</p>
+          </div>
+        </div>
+        <div class="summary" id="d-transport-summary" aria-live="polite"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>Sanitation &amp; disposables used</h2>
+        <p class="hint">Value deducted from sanitation items on this date. Log usage from the Inventory tab.</p>
+      </div>
+      <div class="card-body tight">
+        <div class="table-wrap">
+          <table>
+            <caption class="sr-only">Sanitation and disposable stock used on the selected date</caption>
+            <thead>
+              <tr>
+                <th scope="col">Item</th>
+                <th scope="col">Logged</th>
+                <th scope="col" class="r">Quantity</th>
+                <th scope="col" class="r">Value</th>
+              </tr>
+            </thead>
+            <tbody id="d-san-body"></tbody>
+          </table>
+        </div>
+        <div id="d-san-empty" class="empty" hidden>
+          <svg class="ico" aria-hidden="true"><use href="#i-spray"/></svg>
+          <h3>No sanitation usage logged for this date</h3>
+          <p>Use “Log usage” on any Sanitation &amp; Disposables item in the Inventory tab. The value deducted lands here automatically.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>Opening &amp; closing stock</h2>
+        <p class="hint" id="d-snap-hint">Captured automatically — nothing to enter.</p>
+      </div>
+      <div class="card-body tight">
+        <div class="table-wrap">
+          <table>
+            <caption class="sr-only">Opening and closing stock levels for the selected date</caption>
+            <thead>
+              <tr>
+                <th scope="col">Item</th>
+                <th scope="col" class="r">Opening</th>
+                <th scope="col" class="r" id="d-snap-close-head">Closing</th>
+                <th scope="col" class="r">Change</th>
+                <th scope="col" class="r">Closing value</th>
+              </tr>
+            </thead>
+            <tbody id="d-snap-body"></tbody>
+          </table>
+        </div>
+        <div id="d-snap-empty" class="empty" hidden>
+          <svg class="ico" aria-hidden="true"><use href="#i-box"/></svg>
+          <h3>No snapshot captured for this date</h3>
+          <p>Galley records opening stock the first time it is opened on a given day, and closes that day out the next time it is opened. Dates when the app was never opened have no snapshot.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== SETTINGS — GST + STORE ==================== -->
+  <section class="panel" id="panel-settings" role="tabpanel" aria-labelledby="tab-settings" tabindex="-1" hidden>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>GST</h2>
+        <p class="hint">Off by default. When off, no GST field appears anywhere in the app.</p>
+      </div>
+      <div class="card-body">
+        <div class="grid-form">
+          <div class="fld">
+            <label for="set-gst">GST tracking</label>
+            <select id="set-gst">
+              <option value="0">Disabled</option>
+              <option value="1">Enabled</option>
+            </select>
+            <p class="help">Turning this on adds an optional GST flag and rate to each purchase and each sale.</p>
+          </div>
+        </div>
+        <p class="derived" id="gst-note" hidden>
+          <svg class="ico" aria-hidden="true" style="width:15px;height:15px"><use href="#i-receipt"/></svg>
+          <span>GST is tracked as a pass-through only: it is reported on its own P&amp;L lines and is never
+          blended into item cost, COGS or margin.</span>
+        </p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>Store details</h2>
+        <p class="hint">Single store. Saved as you type.</p>
+      </div>
+      <div class="card-body">
+        <form id="store-form" novalidate>
+          <div class="grid-form">
+            <div class="fld span2">
+              <label for="set-name">Store name</label>
+              <input id="set-name" type="text" autocomplete="off" placeholder="Name of the restaurant">
+            </div>
+            <div class="fld">
+              <label for="set-phone">Phone</label>
+              <input id="set-phone" type="tel" autocomplete="off" placeholder="Contact number">
+            </div>
+            <div class="fld span2">
+              <label for="set-address">Address</label>
+              <input id="set-address" type="text" autocomplete="off" placeholder="Street, area, city, PIN">
+            </div>
+            <div class="fld">
+              <label for="set-gstin">GSTIN</label>
+              <input id="set-gstin" type="text" autocomplete="off" placeholder="Optional">
+              <p class="help">Optional. Used only while GST tracking is enabled.</p>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+
+<div class="scrim" id="scrim" hidden>
+  <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="modal-body">
+    <div class="modal-head">
+      <svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg>
+      <h2 id="modal-title"></h2>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-acts">
+      <button class="btn btn-danger" type="button" id="modal-extra" hidden></button>
+      <button class="btn btn-ghost" type="button" id="modal-cancel">Cancel</button>
+      <button class="btn" type="button" id="modal-ok">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* ============================================================
+   Galley — Phase 1
+   Part A  inventory master (localStorage)
+   Part B  recipe builder + costing engine
+   Part C  "cooked" -> deduct ingredients from stock
+   ============================================================ */
+
+/* ---------------- units ---------------- */
+const UNITS = {
+  weight: { base:'g',   label:'Weight', opts:[['g',1],['kg',1000]] },
+  volume: { base:'mL',  label:'Volume', opts:[['mL',1],['L',1000]] },
+  count:  { base:'pcs', label:'Count',  opts:[['pcs',1]] }
+};
+const baseUnit = t => (UNITS[t] || UNITS.weight).base;
+const unitFactor = (t, u) => {
+  const row = (UNITS[t] || UNITS.weight).opts.find(o => o[0] === u);
+  return row ? row[1] : null;
+};
+
+/* ---------------- storage ---------------- */
+const KEY_INV = 'galley.inventory.v1';
+const KEY_REC = 'galley.recipes.v1';
+const KEY_LOG = 'galley.stockLog.v1';
+const KEY_STAFF = 'galley.staff.v1';
+const KEY_ATT = 'galley.attendance.v1';
+const KEY_DAILY = 'galley.daily.v1';
+const KEY_SALES = 'galley.sales.v1';
+const KEY_SNAP = 'galley.snapshots.v1';
+const KEY_SET = 'galley.settings.v1';
+
+/* Fixed category tags. Sanitation cost is matched on CAT_SANITATION exactly, so these
+   are a closed list rather than free text. Categories saved before this change that are
+   not in this list are preserved on the item and shown as legacy options when editing. */
+const CATEGORIES = ['Raw Material', 'Packaging', 'Sanitation & Disposables', 'Other'];
+const CAT_SANITATION = 'Sanitation & Disposables';
+
+function load(key){
+  try{
+    const raw = localStorage.getItem(key);
+    const val = raw ? JSON.parse(raw) : [];
+    return Array.isArray(val) ? val : [];
+  }catch(e){ return []; }
+}
+/* same guarded read for a single settings object, merged over defaults so a stored record
+   written by an older version never arrives missing keys */
+function loadObj(key, fallback){
+  try{
+    const raw = localStorage.getItem(key);
+    const val = raw ? JSON.parse(raw) : null;
+    if (!val || typeof val !== 'object' || Array.isArray(val)) return fallback;
+    return Object.assign({}, fallback, val, { store: Object.assign({}, fallback.store, val.store || {}) });
+  }catch(e){ return fallback; }
+}
+function save(key, val){
+  try{ localStorage.setItem(key, JSON.stringify(val)); return true; }
+  catch(e){ toast('Could not save to this browser’s storage.', 'err'); return false; }
+}
+
+let inventory = load(KEY_INV);
+let recipes   = load(KEY_REC);
+let stockLog  = load(KEY_LOG);
+let staff     = load(KEY_STAFF);
+let attendance = load(KEY_ATT);
+let daily      = load(KEY_DAILY);
+let sales      = load(KEY_SALES);
+let snapshots  = load(KEY_SNAP);
+/* settings is an object, not a list — store details are nested so a second outlet could
+   later become an array without reshaping anything else */
+let settings   = loadObj(KEY_SET, { gstEnabled:false, store:{ name:'', address:'', phone:'', gstin:'' } });
+const saveInv = () => save(KEY_INV, inventory);
+const saveRec = () => save(KEY_REC, recipes);
+const saveLog = () => save(KEY_LOG, stockLog);
+const saveStaff = () => save(KEY_STAFF, staff);
+const saveAtt = () => save(KEY_ATT, attendance);
+const saveDaily = () => save(KEY_DAILY, daily);
+const saveSales = () => save(KEY_SALES, sales);
+const saveSnap = () => save(KEY_SNAP, snapshots);
+const saveSettings = () => save(KEY_SET, settings);
+
+/* Dated ledger of stock movements. Every deduction is recorded here with the value it
+   carried, so a day's costs can be read back later. Written by "mark as cooked" and by
+   sanitation usage; `reason` keeps it extensible (purchases, manual corrections) without
+   changing the shape. Entries before this ledger existed cannot be reconstructed. */
+function logStockMove(move){
+  const now = new Date().toISOString();
+  /* `at` is the day the movement is attributed to (backdatable); `loggedAt` is when the
+     entry was actually created, so a late entry stays distinguishable from a same-day one */
+  stockLog.push(Object.assign({ id: uid(), at: now, loggedAt: now }, move, { loggedAt: now }));
+}
+
+/* ISO timestamp for a movement attributed to `key`: the live clock when it is today,
+   otherwise local noon on that day — a neutral in-day anchor, never a fabricated time
+   presented as precise (the UI shows backdated entries as "backdated", not as a time). */
+function movementAt(key){
+  const now = new Date();
+  if (!key || key === dayKey(now)) return now.toISOString();
+  const d = parseDay(key);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0).toISOString();
+}
+const isBackdated = e => !!e.loggedAt && dayKey(e.at) !== dayKey(e.loggedAt);
+
+/* shared markup for the "when did this happen" field in movement dialogs */
+function dateFieldHtml(id, label){
+  return '<div class="fld" style="margin-top:6px"><label for="' + id + '">' + label + '</label>' +
+    '<input id="' + id + '" type="date" value="' + dayKey(new Date()) + '" max="' + dayKey(new Date()) + '">' +
+    '<p class="help">Defaults to today. Set an earlier date if this happened then — stock is still ' +
+    'deducted now, only the day it is costed against changes.</p></div>';
+}
+/* returns a validated day key, or null if the field holds a future/invalid date */
+function readDateField(id){
+  const raw = $(id) ? $(id).value : '';
+  const today = dayKey(new Date());
+  if (!raw) return today;
+  if (raw > today) return null;
+  return raw;
+}
+/* local calendar date key — the day boundary everything daily is bucketed by */
+function dayKey(d){
+  const t = (d instanceof Date) ? d : new Date(d);
+  return t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') +
+         '-' + String(t.getDate()).padStart(2, '0');
+}
+
+/* ---------------- helpers ---------------- */
+const $  = (s, r) => (r || document).querySelector(s);
+const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+  ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+const norm = s => String(s == null ? '' : s).trim().toLowerCase();
+const num = v => { const n = parseFloat(v); return Number.isFinite(n) ? n : NaN; };
+
+const money = n => !Number.isFinite(n) ? '—'
+  : '₹' + n.toLocaleString('en-IN', { minimumFractionDigits:2, maximumFractionDigits:2 });
+const rate = n => !Number.isFinite(n) ? '—'
+  : '₹' + n.toLocaleString('en-IN', { minimumFractionDigits:4, maximumFractionDigits:4 });
+const qty = n => !Number.isFinite(n) ? '—'
+  : n.toLocaleString('en-IN', { maximumFractionDigits:3 });
+const when = iso => { const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleString('en-IN', {
+  day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' }); };
+
+const itemById = id => inventory.find(i => i.id === id);
+const itemByName = n => inventory.find(i => norm(i.name) === norm(n));
+
+/* cost per base unit — derived from the purchase entry */
+function costPerBase(item){
+  const f = unitFactor(item.unitType, item.purchaseUnit);
+  const denom = item.purchaseQty * (f || 0);
+  return denom > 0 ? item.purchasePrice / denom : NaN;
+}
+
+/* ---------------- toasts ---------------- */
+function toast(msg, kind){
+  const el = document.createElement('div');
+  el.className = 'toast ' + (kind || '');
+  el.innerHTML = '<svg class="ico" aria-hidden="true"><use href="#i-' +
+    (kind === 'err' ? 'alert' : kind === 'ok' ? 'check' : 'clock') + '"/></svg><span>' + esc(msg) + '</span>';
+  $('#toasts').appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+
+/* ---------------- confirm modal ---------------- */
+let modalOnOk = null, modalOnExtra = null, modalLastFocus = null;
+function confirmDialog({ title, body, okLabel, danger, onOk, extraLabel, onExtra }){
+  modalOnOk = onOk;
+  modalOnExtra = onExtra || null;
+  modalLastFocus = document.activeElement;
+  $('#modal-title').textContent = title;
+  $('#modal-body').innerHTML = body;
+  $('#modal-ok').textContent = okLabel || 'Confirm';
+  $('#modal-ok').className = 'btn' + (danger ? ' btn-danger' : '');
+  const extra = $('#modal-extra');
+  extra.hidden = !extraLabel;
+  extra.textContent = extraLabel || '';
+  $('#modal').classList.toggle('danger', !!danger);
+  $('#scrim').hidden = false;
+  $('#modal-ok').focus();
+}
+function closeModal(){
+  $('#scrim').hidden = true;
+  modalOnOk = null; modalOnExtra = null;
+  if (modalLastFocus && modalLastFocus.focus) modalLastFocus.focus();
+}
+$('#modal-cancel').addEventListener('click', closeModal);
+$('#modal-ok').addEventListener('click', () => { const fn = modalOnOk; closeModal(); if (fn) fn(); });
+$('#modal-extra').addEventListener('click', () => { const fn = modalOnExtra; closeModal(); if (fn) fn(); });
+$('#scrim').addEventListener('mousedown', e => { if (e.target === $('#scrim')) closeModal(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && !$('#scrim').hidden) closeModal();
+});
+
+/* ---------------- field validation ---------------- */
+function setErr(fld, msg){
+  const wrap = $('[data-fld="' + fld + '"]');
+  if (!wrap) return;
+  wrap.classList.toggle('invalid', !!msg);
+  const p = $('.err', wrap);
+  if (p) p.textContent = msg || '';
+}
+function clearErrs(scope){
+  $$('[data-fld]', scope).forEach(w => { w.classList.remove('invalid'); const p = $('.err', w); if (p) p.textContent = ''; });
+}
+
+/* ---------------- tabs ---------------- */
+const VIEWS = ['inventory', 'recipes', 'staff', 'daily', 'settings'];
+function showView(view){
+  const v = VIEWS.includes(view) ? view : 'inventory';
+  VIEWS.forEach(name => { $('#panel-' + name).hidden = (name !== v); });
+  $$('.tab').forEach(t => {
+    const on = t.dataset.view === v;
+    t.setAttribute('aria-selected', on ? 'true' : 'false');
+    t.tabIndex = on ? 0 : -1;
+  });
+  if (location.hash.slice(1) !== v) history.replaceState(null, '', '#' + v);
+}
+$$('.tab').forEach(t => t.addEventListener('click', () => showView(t.dataset.view)));
+$('.tabs').addEventListener('keydown', e => {
+  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+  e.preventDefault();
+  const tabs = $$('.tab');
+  const i = tabs.findIndex(t => t.getAttribute('aria-selected') === 'true');
+  const next = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
+  showView(next.dataset.view); next.focus();
+});
+
+/* ============================================================
+   PART A — inventory master
+   ============================================================ */
+let editingItemId = null;
+
+function fillUnitSelect(sel, type, keep){
+  const opts = (UNITS[type] || UNITS.weight).opts;
+  sel.innerHTML = opts.map(o => '<option value="' + o[0] + '">' + o[0] + '</option>').join('');
+  if (keep && opts.some(o => o[0] === keep)) sel.value = keep;
+}
+
+function syncTypeUI(){
+  const type = $('#it-type').value;
+  fillUnitSelect($('#it-punit'), type, $('#it-punit').value);
+  $('#base-hint').textContent = 'Base unit: ' + baseUnit(type);
+  $('#stock-unit-lbl').textContent = '(' + baseUnit(type) + ')';
+  syncDerived();
+}
+
+function syncDerived(){
+  const q = num($('#it-pqty').value), p = num($('#it-price').value);
+  const f = unitFactor($('#it-type').value, $('#it-punit').value) || 0;
+  const per = (Number.isFinite(q) && Number.isFinite(p) && q > 0 && f > 0) ? p / (q * f) : NaN;
+  $('#derived-val').textContent = Number.isFinite(per)
+    ? rate(per) + ' / ' + baseUnit($('#it-type').value)
+    : '—';
+}
+
+function itemFormValues(){
+  return {
+    name: $('#it-name').value.trim(),
+    category: $('#it-cat').value || 'Other',
+    unitType: $('#it-type').value,
+    purchaseQty: num($('#it-pqty').value),
+    purchaseUnit: $('#it-punit').value,
+    purchasePrice: num($('#it-price').value),
+    stock: $('#it-stock').value === '' ? 0 : num($('#it-stock').value),
+    purchaseDate: $('#it-pdate').value || dayKey(new Date()),
+    gstApplicable: gstOn() ? $('#it-gst').value === '1' : false,
+    gstRate: gstOn() && $('#it-gstrate').value !== '' ? num($('#it-gstrate').value) : null
+  };
+}
+
+/* A purchase is a dated, valued event, so it goes in the same ledger as deductions —
+   that is what makes "GST paid" a per-day figure instead of an all-time one. Editing an
+   item's purchase entry is a correction, so it updates that item's existing purchase
+   record rather than logging a second purchase. */
+function recordPurchase(it, isEdit){
+  const f = unitFactor(it.unitType, it.purchaseUnit) || 1;
+  const gst = gstComponent(it.purchasePrice, it.gstApplicable, it.gstRate);
+  const fields = {
+    at: movementAt(it.purchaseDate), itemId: it.id, itemName: it.name, category: it.category,
+    baseQty: it.purchaseQty * f, base: baseUnit(it.unitType), value: it.purchasePrice,
+    gst, gstRate: it.gstApplicable ? it.gstRate : null, reason: 'purchase', refId: it.id
+  };
+  const existing = isEdit
+    ? stockLog.filter(e => e.reason === 'purchase' && e.itemId === it.id).sort((a, b) => String(a.at).localeCompare(String(b.at))).pop()
+    : null;
+  if (existing) Object.assign(existing, fields, { loggedAt: new Date().toISOString() });
+  else logStockMove(fields);
+  saveLog();
+}
+
+function validateItem(v){
+  let ok = true;
+  clearErrs($('#item-form'));
+  if (!v.name){ setErr('name', 'Give the item a name.'); ok = false; }
+  else {
+    const clash = inventory.find(i => norm(i.name) === norm(v.name) && i.id !== editingItemId);
+    if (clash){ setErr('name', '“' + clash.name + '” is already in your inventory — edit that item instead.'); ok = false; }
+  }
+  if (!Number.isFinite(v.purchaseQty) || v.purchaseQty <= 0){ setErr('purchase', 'Enter how much you bought (greater than 0).'); ok = false; }
+  if (!Number.isFinite(v.purchasePrice) || v.purchasePrice < 0){ setErr('price', 'Enter the total price paid.'); ok = false; }
+  if (!Number.isFinite(v.stock)){ setErr('stock', 'Stock must be a number.'); ok = false; }
+  if (v.purchaseDate > dayKey(new Date())){ setErr('pdate', 'Purchase date cannot be in the future.'); ok = false; }
+  if (gstOn() && v.gstApplicable && (!Number.isFinite(v.gstRate) || v.gstRate <= 0)){
+    setErr('itgstrate', 'Enter the GST rate, or set GST applicable to No.'); ok = false;
+  }
+  if (!ok){ const first = $('.fld.invalid input, .fld.invalid select', $('#item-form')); if (first) first.focus(); }
+  return ok;
+}
+
+/* keeps a pre-existing custom category selectable while editing that item, so converting
+   the field to a fixed list never silently rewrites data saved before the change */
+function ensureCategoryOption(value){
+  const sel = $('#it-cat');
+  $$('option[data-legacy]', sel).forEach(o => o.remove());
+  if (!value || CATEGORIES.includes(value)) return;
+  const opt = document.createElement('option');
+  opt.value = value;
+  opt.textContent = value + ' (existing tag)';
+  opt.dataset.legacy = '1';
+  sel.appendChild(opt);
+}
+
+function resetItemForm(){
+  editingItemId = null;
+  $('#item-form').reset();
+  ensureCategoryOption('');
+  $('#it-cat').value = CATEGORIES[0];
+  $('#it-pdate').value = dayKey(new Date());
+  $('#it-pdate').max = dayKey(new Date());
+  $('#it-gst').value = '0';
+  $('#it-gstrate').value = '';
+  $('#it-type').value = 'weight';
+  syncTypeUI();
+  clearErrs($('#item-form'));
+  $('#item-form-title').textContent = 'Add inventory item';
+  $('#item-submit-label').textContent = 'Add item';
+  $('#item-cancel').hidden = true;
+}
+
+function startItemEdit(id){
+  const it = itemById(id); if (!it) return;
+  editingItemId = id;
+  $('#it-name').value = it.name;
+  ensureCategoryOption(it.category);
+  $('#it-cat').value = it.category;
+  $('#it-type').value = it.unitType;
+  syncTypeUI();
+  $('#it-punit').value = it.purchaseUnit;
+  $('#it-pqty').value = it.purchaseQty;
+  $('#it-price').value = it.purchasePrice;
+  $('#it-stock').value = it.stock;
+  $('#it-pdate').value = it.purchaseDate || dayKey(new Date(it.createdAt || Date.now()));
+  $('#it-gst').value = it.gstApplicable ? '1' : '0';
+  $('#it-gstrate').value = Number.isFinite(it.gstRate) ? it.gstRate : '';
+  syncDerived();
+  clearErrs($('#item-form'));
+  $('#item-form-title').textContent = 'Edit inventory item';
+  $('#item-submit-label').textContent = 'Save changes';
+  $('#item-cancel').hidden = false;
+  showView('inventory');
+  $('#it-name').focus();
+  $('#item-form').scrollIntoView({ block:'center', behavior:'smooth' });
+}
+
+$('#item-form').addEventListener('submit', e => {
+  e.preventDefault();
+  const v = itemFormValues();
+  if (!validateItem(v)) return;
+  if (editingItemId){
+    const it = itemById(editingItemId);
+    Object.assign(it, v, { costPerBase: NaN });
+    it.costPerBase = costPerBase(it);
+    saveInv();
+    recordPurchase(it, true);
+    toast('Updated “' + it.name + '”.', 'ok');
+    resetItemForm();
+  } else {
+    const it = Object.assign({ id: uid(), createdAt: new Date().toISOString() }, v);
+    it.costPerBase = costPerBase(it);
+    inventory.push(it);
+    saveInv();
+    recordPurchase(it, false);
+    toast('Added “' + it.name + '” at ' + rate(it.costPerBase) + '/' + baseUnit(it.unitType) + '.', 'ok');
+    resetItemForm();
+  }
+  renderAll();
+});
+$('#item-cancel').addEventListener('click', () => { resetItemForm(); toast('Edit cancelled.'); });
+$('#it-type').addEventListener('change', syncTypeUI);
+['#it-pqty', '#it-price', '#it-punit'].forEach(s => {
+  $(s).addEventListener('input', syncDerived);
+  $(s).addEventListener('change', syncDerived);
+});
+function checkItemName(onBlur){
+  const v = $('#it-name').value.trim();
+  if (!v){ setErr('name', ''); return; }                 /* never leave a stale error behind */
+  const clash = inventory.find(i => norm(i.name) === norm(v) && i.id !== editingItemId);
+  if (clash) { if (onBlur) setErr('name', '“' + clash.name + '” is already in your inventory — edit that item instead.'); }
+  else setErr('name', '');
+}
+$('#it-name').addEventListener('blur', () => checkItemName(true));
+$('#it-name').addEventListener('input', () => checkItemName(false));
+$('#it-pqty').addEventListener('blur', () => {
+  const q = num($('#it-pqty').value);
+  setErr('purchase', ($('#it-pqty').value !== '' && (!Number.isFinite(q) || q <= 0)) ? 'Must be greater than 0.' : '');
+});
+
+function deleteItem(id){
+  const it = itemById(id); if (!it) return;
+  const used = recipes.filter(r => r.ingredients.some(g => g.itemId === id));
+  let body = '<p>Delete <strong>' + esc(it.name) + '</strong> from inventory? This cannot be undone.</p>';
+  if (used.length){
+    body += '<p>It is used in ' + used.length + ' recipe' + (used.length > 1 ? 's' : '') +
+      ', where the line will be flagged as missing:</p><ul>' +
+      used.map(r => '<li>' + esc(r.name) + '</li>').join('') + '</ul>';
+  }
+  confirmDialog({ title:'Delete item', body, okLabel:'Delete item', danger:true, onOk(){
+    inventory = inventory.filter(i => i.id !== id);
+    saveInv();
+    if (editingItemId === id) resetItemForm();
+    renderAll();
+    toast('Deleted “' + it.name + '”.', 'ok');
+  }});
+}
+
+function renderInventory(){
+  const q = norm($('#inv-q').value);
+  const cat = $('#inv-cat').value;
+  const rows = inventory
+    .filter(i => (!q || norm(i.name).includes(q)) && (!cat || i.category === cat))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  $('#inv-body').innerHTML = rows.map(i => {
+    const per = costPerBase(i), b = baseUnit(i.unitType);
+    const value = Number.isFinite(per) ? per * i.stock : NaN;
+    const low = i.stock <= 0;
+    return '<tr>' +
+      '<td><span class="cell-name">' + esc(i.name) + '</span>' +
+        '<span class="cell-sub">' + (UNITS[i.unitType] || UNITS.weight).label + ' · base ' + b + '</span></td>' +
+      '<td><span class="chip">' + esc(i.category) + '</span></td>' +
+      '<td class="r">' + qty(i.purchaseQty) + ' ' + esc(i.purchaseUnit) + ' &rarr; ' + money(i.purchasePrice) + '</td>' +
+      '<td class="r">' + rate(per) + '<span class="cell-sub">per ' + b + '</span></td>' +
+      '<td class="r"><span class="stock-cell">' +
+        '<input class="stock-edit" type="number" step="any" inputmode="decimal" value="' + i.stock +
+        '" data-stock="' + i.id + '" aria-label="Current stock of ' + esc(i.name) + ' in ' + b + '">' +
+        '<span class="u">' + b + '</span></span>' +
+        (low ? '<span class="chip red" style="margin-top:4px">out of stock</span>' : '') + '</td>' +
+      '<td class="r">' + money(value) + '</td>' +
+      '<td><span class="row-acts">' +
+        /* sanitation items are consumed directly, not through a recipe — same deduction
+           pattern as "mark as cooked", which is what Step 4 reads back as the day's cost */
+        (i.category === CAT_SANITATION
+          ? '<button class="btn btn-ghost btn-sm" type="button" data-use="' + i.id + '">' +
+              '<svg class="ico" aria-hidden="true"><use href="#i-spray"/></svg>Log usage</button>'
+          : '') +
+        '<button class="btn-icon" type="button" data-edit="' + i.id + '" aria-label="Edit ' + esc(i.name) + '" title="Edit"><svg class="ico" aria-hidden="true"><use href="#i-pencil"/></svg></button>' +
+        '<button class="btn-icon danger" type="button" data-del="' + i.id + '" aria-label="Delete ' + esc(i.name) + '" title="Delete"><svg class="ico" aria-hidden="true"><use href="#i-trash"/></svg></button>' +
+      '</span></td></tr>';
+  }).join('');
+
+  $('#inv-empty').hidden   = inventory.length !== 0;
+  $('#inv-nomatch').hidden = !(inventory.length && rows.length === 0);
+
+  const totalValue = inventory.reduce((s, i) => {
+    const p = costPerBase(i); return s + (Number.isFinite(p) ? p * i.stock : 0);
+  }, 0);
+  const outOf = inventory.filter(i => i.stock <= 0).length;
+  $('#inv-stats').innerHTML =
+    stat('Inventory items', inventory.length, new Set(inventory.map(i => i.category)).size + ' categories') +
+    stat('Stock value at cost', money(totalValue), 'current stock × unit cost', 'is-accent') +
+    stat('Out of stock', outOf, outOf ? 'needs restocking' : 'all items in stock', outOf ? 'is-danger' : '');
+}
+function stat(label, value, sub, cls){
+  return '<div class="stat ' + (cls || '') + '"><dt>' + esc(label) + '</dt>' +
+    '<dd>' + esc(String(value)) + (sub ? '<span class="sub">' + esc(sub) + '</span>' : '') + '</dd></div>';
+}
+
+$('#inv-body').addEventListener('click', e => {
+  const ed = e.target.closest('[data-edit]'), dl = e.target.closest('[data-del]');
+  const use = e.target.closest('[data-use]');
+  if (use) openUsageEditor(use.dataset.use);
+  if (ed) startItemEdit(ed.dataset.edit);
+  if (dl) deleteItem(dl.dataset.del);
+});
+$('#inv-body').addEventListener('change', e => {
+  const inp = e.target.closest('[data-stock]'); if (!inp) return;
+  const it = itemById(inp.dataset.stock); if (!it) return;
+  const n = num(inp.value);
+  if (!Number.isFinite(n)){ inp.value = it.stock; toast('Stock must be a number.', 'err'); return; }
+  it.stock = n; saveInv(); renderAll();
+  toast('Stock for “' + it.name + '” set to ' + qty(n) + ' ' + baseUnit(it.unitType) + '.', 'ok');
+});
+$('#inv-q').addEventListener('input', renderInventory);
+$('#inv-cat').addEventListener('change', renderInventory);
+
+/* ============================================================
+   PART B — recipe builder + costing engine
+   ============================================================ */
+let editingRecipeId = null;
+
+/* the costing engine: one recipe -> full breakdown */
+function computeRecipe(r){
+  const lines = (r.ingredients || []).map(g => {
+    const item = itemById(g.itemId);
+    if (!item) return { missing:true, reason:'deleted', name:g.name || 'Unknown item', qty:g.qty, unit:g.unit, cost:0 };
+    const f = unitFactor(item.unitType, g.unit);
+    const baseQty = Number.isFinite(g.qty) && f ? g.qty * f : NaN;
+    const per = costPerBase(item);
+    /* an item with no usable purchase has an unknown cost, not a zero cost — flag it the
+       same way a deleted item is flagged and re-cost the recipe without it. The item still
+       exists, so its stock is still deducted when a batch is cooked. */
+    /* cost stays NaN, not 0 — "unknown", so totals skip it and the ledger records it as
+       unvalued rather than free */
+    if (!Number.isFinite(per)) return { missing:true, reason:'uncosted', item, name:item.name,
+      qty:g.qty, unit:g.unit, base:baseUnit(item.unitType), baseQty, per:NaN, cost:NaN };
+    const cost = Number.isFinite(baseQty) ? baseQty * per : NaN;
+    return { item, name:item.name, qty:g.qty, unit:g.unit, base:baseUnit(item.unitType), baseQty, per, cost };
+  });
+  const rawCost   = lines.reduce((s, l) => s + (Number.isFinite(l.cost) ? l.cost : 0), 0);
+  const wastePct  = Number.isFinite(r.wastagePct) ? r.wastagePct : 0;
+  const wasteCost = rawCost * (wastePct / 100);
+  const batchCost = rawCost + wasteCost;
+  const servings  = Number.isFinite(r.yieldServings) ? r.yieldServings : 0;
+  const perServing = servings > 0 ? batchCost / servings : NaN;
+  return { lines, rawCost, wastePct, wasteCost, batchCost, servings, perServing,
+           missing:  lines.filter(l => l.missing).length,
+           deleted:  lines.filter(l => l.reason === 'deleted').length,
+           uncosted: lines.filter(l => l.reason === 'uncosted').length };
+}
+
+/* ----- ingredient rows in the builder ----- */
+function addIngRow(data){
+  const row = document.createElement('div');
+  row.className = 'ing-row';
+  row.dataset.itemId = (data && data.itemId) || '';
+  row.innerHTML =
+    '<div class="fld ing-item"><label>Inventory item</label>' +
+      '<input class="ing-name" type="text" list="dl-items" autocomplete="off" placeholder="Pick from inventory">' +
+      '<p class="err ing-err" role="alert"></p></div>' +
+    '<div class="fld"><label>Qty used</label>' +
+      '<input class="ing-qty" type="number" min="0" step="any" inputmode="decimal" placeholder="0"></div>' +
+    '<div class="fld"><label>Unit</label><select class="ing-unit" aria-label="Unit of quantity used" disabled></select></div>' +
+    '<p class="ro ing-rate" data-label="Rate">—</p>' +
+    '<p class="ro cost ing-cost" data-label="Line cost">—</p>' +
+    '<button class="btn-icon danger ing-del" type="button" aria-label="Remove this ingredient" title="Remove"><svg class="ico" aria-hidden="true"><use href="#i-trash"/></svg></button>';
+  $('#ing-rows').appendChild(row);
+
+  if (data){
+    const it = itemById(data.itemId);
+    $('.ing-name', row).value = it ? it.name : (data.name || '');
+    if (it) fillUnitSelect($('.ing-unit', row), it.unitType, data.unit);
+    $('.ing-unit', row).disabled = !it;
+    $('.ing-qty', row).value = Number.isFinite(data.qty) ? data.qty : '';
+  }
+  return row;
+}
+
+function resolveRow(row){
+  const input = $('.ing-name', row);
+  const name = input.value.trim();
+  const err = $('.ing-err', row);
+  const unitSel = $('.ing-unit', row);
+  const fld = input.closest('.fld');
+
+  if (!name){
+    row.dataset.itemId = ''; unitSel.innerHTML = ''; unitSel.disabled = true;
+    fld.classList.remove('invalid'); err.textContent = '';
+    return;
+  }
+  const it = itemByName(name);
+  if (!it){
+    row.dataset.itemId = ''; unitSel.innerHTML = ''; unitSel.disabled = true;
+    fld.classList.add('invalid');
+    err.textContent = 'Not in inventory — pick an existing item, or add it on the Inventory tab first.';
+    return;
+  }
+  fld.classList.remove('invalid'); err.textContent = '';
+  input.value = it.name;                     /* snap to the stored spelling */
+  if (row.dataset.itemId !== it.id){
+    row.dataset.itemId = it.id;
+    fillUnitSelect(unitSel, it.unitType, unitSel.value);
+  }
+  unitSel.disabled = false;
+}
+
+function readBuilder(){
+  return {
+    name: $('#rc-name').value.trim(),
+    category: $('#rc-cat').value.trim() || 'Uncategorised',
+    batchQty: num($('#rc-bqty').value),
+    batchUnit: $('#rc-bunit').value.trim(),
+    yieldServings: num($('#rc-yield').value),
+    servingName: $('#rc-sname').value.trim() || 'servings',
+    wastagePct: $('#rc-wast').value === '' ? 0 : num($('#rc-wast').value),
+    /* selling price per serving — stored beside the cost fields, never used by computeRecipe() */
+    menuPrice: $('#rc-price').value === '' ? null : num($('#rc-price').value),
+    ingredients: $$('.ing-row').map(row => ({
+      itemId: row.dataset.itemId,
+      qty: num($('.ing-qty', row).value),
+      unit: $('.ing-unit', row).value
+    })).filter(g => g.itemId || Number.isFinite(g.qty))
+  };
+}
+
+function syncBuilder(){
+  $$('.ing-row').forEach(row => {
+    const it = itemById(row.dataset.itemId);
+    const q = num($('.ing-qty', row).value);
+    const u = $('.ing-unit', row).value;
+    const f = it ? unitFactor(it.unitType, u) : null;
+    const per = it ? costPerBase(it) : NaN;
+    $('.ing-rate', row).textContent = it && Number.isFinite(per) ? rate(per) + '/' + baseUnit(it.unitType) : '—';
+    $('.ing-cost', row).textContent = (it && f && Number.isFinite(q) && Number.isFinite(per)) ? money(q * f * per) : '—';
+  });
+
+  const draft = readBuilder();
+  const c = computeRecipe(draft);
+  const servingName = draft.servingName || 'servings';
+  $('#builder-summary').innerHTML =
+    sumRow('Raw ingredient cost · ' + c.lines.filter(l => !l.missing).length + ' ingredient(s)', money(c.rawCost), 'sub') +
+    sumRow('Wastage / prep loss @ ' + qty(c.wastePct) + '%', '+ ' + money(c.wasteCost)) +
+    sumRow('Total batch cost' + (draft.batchQty > 0 && draft.batchUnit ? ' · ' + qty(draft.batchQty) + ' ' + esc(draft.batchUnit) : ''), money(c.batchCost), 'total') +
+    sumRow('Cost per ' + singular(servingName) + (c.servings > 0 ? ' · ' + qty(c.servings) + ' ' + esc(servingName) + ' / batch' : ''),
+           Number.isFinite(c.perServing) ? money(c.perServing) : '—', 'hero');
+
+  const n = inventory.length;
+  $('#ing-hint').textContent = n
+    ? n + ' item' + (n > 1 ? 's' : '') + ' available in inventory'
+    : 'No inventory items yet — add some on the Inventory tab first.';
+}
+function sumRow(k, v, cls){
+  return '<div class="row ' + (cls || '') + '"><span class="k">' + k + '</span><span class="v">' + v + '</span></div>';
+}
+const singular = s => {
+  const w = String(s || '').trim();
+  return /s$/i.test(w) && w.length > 1 ? w.slice(0, -1) : (w || 'serving');
+};
+
+function validateRecipe(v){
+  let ok = true;
+  clearErrs($('#recipe-form'));
+  $('#err-ings').textContent = '';
+  if (!v.name){ setErr('rname', 'Give the recipe a name.'); ok = false; }
+  else if (recipes.some(r => norm(r.name) === norm(v.name) && r.id !== editingRecipeId)){
+    setErr('rname', 'A recipe with this name already exists.'); ok = false;
+  }
+  if (!Number.isFinite(v.batchQty) || v.batchQty <= 0 || !v.batchUnit){
+    setErr('batch', 'Enter the batch size and its unit (e.g. 5 kg, or 10 plates).'); ok = false;
+  }
+  if (!Number.isFinite(v.yieldServings) || v.yieldServings <= 0){
+    setErr('yield', 'Enter how many servings one batch produces.'); ok = false;
+  }
+  if (!Number.isFinite(v.wastagePct) || v.wastagePct < 0){
+    setErr('wastage', 'Wastage must be 0 or more.'); ok = false;
+  }
+  if (v.menuPrice !== null && (!Number.isFinite(v.menuPrice) || v.menuPrice < 0)){
+    setErr('menuprice', 'Menu price must be 0 or more, or left blank.'); ok = false;
+  }
+  const rows = $$('.ing-row');
+  const bad = rows.filter(row => {
+    const hasName = $('.ing-name', row).value.trim() !== '';
+    const q = num($('.ing-qty', row).value);
+    return hasName && (!row.dataset.itemId || !Number.isFinite(q) || q <= 0);
+  });
+  const good = v.ingredients.filter(g => g.itemId && Number.isFinite(g.qty) && g.qty > 0);
+  if (!good.length){ $('#err-ings').textContent = 'Add at least one ingredient with a quantity.'; ok = false; }
+  if (bad.length){
+    $('#err-ings').textContent = 'Every ingredient row needs an existing inventory item and a quantity greater than 0.';
+    bad.forEach(row => { const q = num($('.ing-qty', row).value);
+      $('.ing-qty', row).closest('.fld').classList.toggle('invalid', !Number.isFinite(q) || q <= 0); });
+    ok = false;
+  }
+  if (!ok){
+    const first = $('.fld.invalid input, .fld.invalid select', $('#recipe-form'));
+    if (first) first.focus();
+  }
+  return ok;
+}
+
+function resetRecipeForm(){
+  editingRecipeId = null;
+  $('#recipe-form').reset();
+  $('#rc-wast').value = '0';
+  $('#rc-price').value = '';
+  $('#ing-rows').innerHTML = '';
+  addIngRow(); addIngRow();
+  clearErrs($('#recipe-form'));
+  $('#err-ings').textContent = '';
+  $('#recipe-form-title').textContent = 'Build a recipe';
+  $('#recipe-submit-label').textContent = 'Save recipe';
+  $('#recipe-cancel').hidden = true;
+  syncBuilder();
+}
+
+function startRecipeEdit(id){
+  const r = recipes.find(x => x.id === id); if (!r) return;
+  editingRecipeId = id;
+  $('#rc-name').value = r.name;
+  $('#rc-cat').value = r.category;
+  $('#rc-bqty').value = r.batchQty;
+  $('#rc-bunit').value = r.batchUnit;
+  $('#rc-yield').value = r.yieldServings;
+  $('#rc-sname').value = r.servingName;
+  $('#rc-wast').value = r.wastagePct;
+  $('#rc-price').value = (r.menuPrice === null || r.menuPrice === undefined) ? '' : r.menuPrice;
+  $('#ing-rows').innerHTML = '';
+  r.ingredients.forEach(g => addIngRow(g));
+  if (!r.ingredients.length) addIngRow();
+  clearErrs($('#recipe-form'));
+  $('#err-ings').textContent = '';
+  $('#recipe-form-title').textContent = 'Edit recipe';
+  $('#recipe-submit-label').textContent = 'Save changes';
+  $('#recipe-cancel').hidden = false;
+  syncBuilder();
+  showView('recipes');
+  $('#rc-name').focus();
+  $('#recipe-form').scrollIntoView({ block:'start', behavior:'smooth' });
+}
+
+$('#ing-add').addEventListener('click', () => {
+  const row = addIngRow();
+  $('.ing-name', row).focus();
+  syncBuilder();
+});
+$('#ing-rows').addEventListener('click', e => {
+  const del = e.target.closest('.ing-del'); if (!del) return;
+  const rows = $$('.ing-row');
+  if (rows.length === 1){ const r = rows[0];
+    $('.ing-name', r).value = ''; $('.ing-qty', r).value = ''; resolveRow(r);
+  } else del.closest('.ing-row').remove();
+  syncBuilder();
+});
+$('#ing-rows').addEventListener('input', e => {
+  if (e.target.classList.contains('ing-name')) resolveRow(e.target.closest('.ing-row'));
+  syncBuilder();
+});
+$('#ing-rows').addEventListener('change', e => {
+  if (e.target.classList.contains('ing-name')) resolveRow(e.target.closest('.ing-row'));
+  syncBuilder();
+});
+['#rc-bqty', '#rc-bunit', '#rc-yield', '#rc-sname', '#rc-wast'].forEach(s => {
+  $(s).addEventListener('input', syncBuilder);
+});
+$('#rc-name').addEventListener('input', () => {
+  const v = $('#rc-name').value.trim();
+  const clash = v && recipes.some(r => norm(r.name) === norm(v) && r.id !== editingRecipeId);
+  if (!clash) setErr('rname', '');
+});
+
+$('#recipe-form').addEventListener('submit', e => {
+  e.preventDefault();
+  const v = readBuilder();
+  if (!validateRecipe(v)) return;
+  v.ingredients = v.ingredients.filter(g => g.itemId && Number.isFinite(g.qty) && g.qty > 0);
+  if (editingRecipeId){
+    const r = recipes.find(x => x.id === editingRecipeId);
+    Object.assign(r, v);
+    saveRec();
+    toast('Updated “' + r.name + '”.', 'ok');
+  } else {
+    recipes.push(Object.assign({ id: uid(), createdAt: new Date().toISOString(), cookLog: [] }, v));
+    saveRec();
+    toast('Saved “' + v.name + '”.', 'ok');
+  }
+  resetRecipeForm();
+  renderAll();
+});
+$('#recipe-cancel').addEventListener('click', () => { resetRecipeForm(); toast('Edit cancelled.'); });
+
+/* ----- recipe cards ----- */
+function renderRecipes(){
+  const q = norm($('#rec-q').value);
+  const cat = $('#rec-cat').value;
+  const list = recipes
+    .filter(r => (!q || norm(r.name).includes(q)) && (!cat || r.category === cat))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  $('#rec-list').innerHTML = list.map(r => {
+    const c = computeRecipe(r);
+    const sName = r.servingName || 'servings';
+    const lines = c.lines.map(l => l.missing
+      ? '<tr><td><span class="cell-name">' + esc(l.name) + '</span>' +
+          '<span class="cell-sub">' + (l.reason === 'uncosted'
+            ? 'no purchase logged — unit cost unknown' : 'removed from inventory') + '</span></td>' +
+        '<td class="r">' + qty(l.qty) + ' ' + esc(l.unit || '') + '</td>' +
+        '<td class="r">' + (l.reason === 'uncosted' && Number.isFinite(l.baseQty)
+            ? qty(l.baseQty) + ' ' + l.base : '—') + '</td><td class="r">—</td>' +
+        '<td class="r"><span class="chip red">' +
+          (l.reason === 'uncosted' ? 'uncosted' : 'missing') + '</span></td></tr>'
+      : '<tr><td><span class="cell-name">' + esc(l.name) + '</span>' +
+          '<span class="cell-sub">in stock: ' + qty(l.item.stock) + ' ' + l.base + '</span></td>' +
+        '<td class="r">' + qty(l.qty) + ' ' + esc(l.unit) + '</td>' +
+        '<td class="r">' + qty(l.baseQty) + ' ' + l.base + '</td>' +
+        '<td class="r">' + rate(l.per) + '<span class="cell-sub">per ' + l.base + '</span></td>' +
+        '<td class="r">' + money(l.cost) + '</td></tr>').join('');
+
+    const short = c.lines.filter(l => !l.missing && Number.isFinite(l.baseQty) && l.item.stock < l.baseQty);
+    const log = (r.cookLog || []).slice(-4).reverse();
+
+    return '<article class="card">' +
+      '<div class="rc-head">' +
+        '<div class="rc-title"><h3>' + esc(r.name) + '</h3>' +
+          '<p class="rc-meta"><span class="chip blue">' + esc(r.category) + '</span>' +
+            '<span class="chip"><svg class="ico" aria-hidden="true"><use href="#i-scale"/></svg>batch ' + qty(r.batchQty) + ' ' + esc(r.batchUnit) + '</span>' +
+            '<span class="chip">yield ' + qty(r.yieldServings) + ' ' + esc(sName) + '</span>' +
+            '<span class="chip amber">wastage ' + qty(r.wastagePct) + '%</span>' +
+            /* selling price shown beside the recipe, deliberately outside the cost breakdown */
+            (Number.isFinite(r.menuPrice) ? '<span class="chip green">menu price ' + money(r.menuPrice) + '</span>' : '') +
+          '</p></div>' +
+        '<div class="rc-acts">' +
+          '<button class="btn btn-accent btn-sm" type="button" data-cook="' + r.id + '">' +
+            '<svg class="ico" aria-hidden="true"><use href="#i-flame"/></svg>Mark as cooked</button>' +
+          '<button class="btn-icon" type="button" data-redit="' + r.id + '" aria-label="Edit ' + esc(r.name) + '" title="Edit recipe"><svg class="ico" aria-hidden="true"><use href="#i-pencil"/></svg></button>' +
+          '<button class="btn-icon danger" type="button" data-rdel="' + r.id + '" aria-label="Delete ' + esc(r.name) + '" title="Delete recipe"><svg class="ico" aria-hidden="true"><use href="#i-trash"/></svg></button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="rc-grid">' +
+        '<div class="rc-break"><div class="table-wrap"><table>' +
+          '<caption class="sr-only">Ingredient cost breakdown for ' + esc(r.name) + '</caption>' +
+          '<thead><tr><th scope="col">Ingredient</th><th scope="col" class="r">Qty used</th>' +
+            '<th scope="col" class="r">In base unit</th><th scope="col" class="r">Rate</th>' +
+            '<th scope="col" class="r">Line cost</th></tr></thead><tbody>' + lines + '</tbody></table></div></div>' +
+        '<div class="rc-side">' +
+          '<div class="summary">' +
+            sumRow('Raw ingredient cost', money(c.rawCost), 'sub') +
+            sumRow('Wastage / prep loss @ ' + qty(c.wastePct) + '%', '+ ' + money(c.wasteCost)) +
+            sumRow('Total batch cost', money(c.batchCost), 'total') +
+            sumRow('Cost per ' + esc(singular(sName)), money(c.perServing), 'hero') +
+          '</div>' +
+          (c.deleted ? '<p class="warn-line"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg>' +
+            c.deleted + ' ingredient' + (c.deleted > 1 ? 's are' : ' is') + ' no longer in inventory, so ' +
+            (c.deleted > 1 ? 'their costs are' : 'its cost is') + ' excluded. Edit the recipe to fix it.</p>' : '') +
+          (c.uncosted ? '<p class="warn-line"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg>' +
+            c.uncosted + ' ingredient' + (c.uncosted > 1 ? 's have' : ' has') + ' no purchase logged, so ' +
+            (c.uncosted > 1 ? 'their costs are' : 'its cost is') + ' unknown and excluded from this total. ' +
+            'Add a purchase entry on the Inventory tab to cost ' + (c.uncosted > 1 ? 'them' : 'it') + '.</p>' : '') +
+          (short.length ? '<p class="warn-line"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg>' +
+            'Not enough stock for a full batch: ' + short.map(l => esc(l.name)).join(', ') + '.</p>' : '') +
+          '<div class="cooklog">' + (log.length
+            ? '<strong style="color:var(--text)">Cooked ' + (r.cookLog.length) + '×</strong><ul>' +
+              log.map(t => '<li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>' + esc(when(t)) + '</li>').join('') + '</ul>'
+            : '<span>Not cooked yet. “Mark as cooked” deducts every ingredient from stock.</span>') +
+          '</div>' +
+        '</div>' +
+      '</div></article>';
+  }).join('');
+
+  $('#rec-empty').hidden   = recipes.length !== 0;
+  $('#rec-nomatch').hidden = !(recipes.length && list.length === 0);
+
+  const costed = recipes.map(computeRecipe).filter(c => Number.isFinite(c.perServing));
+  const avg = costed.length ? costed.reduce((s, c) => s + c.perServing, 0) / costed.length : NaN;
+  const cooks = recipes.reduce((s, r) => s + ((r.cookLog || []).length), 0);
+  $('#rec-stats').innerHTML =
+    stat('Recipes', recipes.length, new Set(recipes.map(r => r.category)).size + ' categories') +
+    stat('Avg cost / serving', costed.length ? money(avg) : '—', 'across all recipes', 'is-accent') +
+    stat('Batches cooked', cooks, 'stock deductions logged');
+}
+
+$('#rec-q').addEventListener('input', renderRecipes);
+$('#rec-cat').addEventListener('change', renderRecipes);
+$('#rec-list').addEventListener('click', e => {
+  const cook = e.target.closest('[data-cook]');
+  const ed = e.target.closest('[data-redit]');
+  const dl = e.target.closest('[data-rdel]');
+  if (cook) askCook(cook.dataset.cook);
+  if (ed) startRecipeEdit(ed.dataset.redit);
+  if (dl) askDeleteRecipe(dl.dataset.rdel);
+});
+
+function askDeleteRecipe(id){
+  const r = recipes.find(x => x.id === id); if (!r) return;
+  confirmDialog({
+    title: 'Delete recipe',
+    body: '<p>Delete <strong>' + esc(r.name) + '</strong>? Its cost breakdown and cook history will be removed. Stock already deducted stays as it is.</p>',
+    okLabel: 'Delete recipe', danger: true,
+    onOk(){
+      recipes = recipes.filter(x => x.id !== id);
+      saveRec();
+      if (editingRecipeId === id) resetRecipeForm();
+      renderAll();
+      toast('Deleted “' + r.name + '”.', 'ok');
+    }
+  });
+}
+
+/* ============================================================
+   PART C — "cooked" deducts ingredients from stock
+   ============================================================ */
+function askCook(id){
+  const r = recipes.find(x => x.id === id); if (!r) return;
+  const c = computeRecipe(r);
+  /* deduct every line that still points at a real item — including uncosted ones, whose
+     stock movement is real even though its value is unknown. Only deleted items are skipped. */
+  const usable = c.lines.filter(l => l.item && Number.isFinite(l.baseQty));
+  if (!usable.length){
+    toast('Nothing to deduct — this recipe has no valid inventory lines.', 'err');
+    return;
+  }
+  const rows = usable.map(l => {
+    const after = l.item.stock - l.baseQty;
+    return '<div class="kv"><span>' + esc(l.name) + '</span><span>&minus;' + qty(l.baseQty) + ' ' + l.base +
+      ' → <span class="' + (after < 0 ? 'neg' : '') + '">' + qty(after) + ' ' + l.base + '</span></span></div>';
+  }).join('');
+  const negatives = usable.filter(l => l.item.stock - l.baseQty < 0);
+  const body = '<p>Log one cooked batch of <strong>' + esc(r.name) + '</strong> and deduct from stock:</p>' + rows +
+    (c.deleted ? '<p>' + c.deleted + ' deleted ingredient line' + (c.deleted > 1 ? 's' : '') + ' will be skipped.</p>' : '') +
+    (c.uncosted ? '<p>' + c.uncosted + ' uncosted ingredient line' + (c.uncosted > 1 ? 's' : '') +
+      ' will still be deducted from stock, but cannot be valued until a purchase is logged.</p>' : '') +
+    (negatives.length ? '<p class="warn-line"><svg class="ico" aria-hidden="true"><use href="#i-alert"/></svg>' +
+      negatives.length + ' item' + (negatives.length > 1 ? 's would' : ' would') +
+      ' go below zero. Continue only if that stock was bought but not entered.</p>' : '') +
+    dateFieldHtml('cook-date', 'Date cooked');
+
+  confirmDialog({ title:'Mark as cooked', body, okLabel:'Cook & deduct', onOk(){
+    const key = readDateField('#cook-date');
+    if (!key){ toast('Cooking cannot be logged for a future date.', 'err'); return; }
+    const at = movementAt(key);
+    usable.forEach(l => {
+      l.item.stock = l.item.stock - l.baseQty;
+      logStockMove({ at, itemId:l.item.id, itemName:l.item.name, category:l.item.category,
+                     baseQty:l.baseQty, base:l.base, value:Number.isFinite(l.cost) ? l.cost : null,
+                     reason:'cook', refId:r.id, refName:r.name });
+    });
+    r.cookLog = r.cookLog || [];
+    r.cookLog.push(at);
+    saveInv(); saveRec(); saveLog(); renderAll();
+    toast('Cooked “' + r.name + '” · ' + usable.length + ' ingredient' +
+      (usable.length > 1 ? 's' : '') + ' deducted from stock' +
+      (key === dayKey(new Date()) ? '.' : ' · costed against ' + key + '.'), 'ok');
+  }});
+}
+
+/* ============================================================
+   STAFF MASTER + DAILY COST LOGIC + ATTENDANCE
+   ============================================================ */
+let editingStaffId = null;
+let calStaffId = null;                     /* staff member whose calendar is open */
+let calMonth = new Date();                 /* first-of-month anchor for the calendar */
+
+const staffById = id => staff.find(s => s.id === id);
+const daysInMonth = (y, m) => new Date(y, m + 1, 0).getDate();
+const parseDay = key => { const [y, m, d] = String(key).split('-').map(Number); return new Date(y, m - 1, d); };
+const attKey = (staffId, date) => staffId + '|' + date;
+const overrideFor = (staffId, date) => attendance.find(a => a.staffId === staffId && a.date === date);
+
+/* Default cost for one day, from the pay basis. Monthly divides by the length of that
+   specific month, so a month of defaults sums back to exactly the monthly rate. */
+function defaultDailyCost(s, dateKey){
+  const rate = Number.isFinite(s.rate) ? s.rate : NaN;
+  if (!Number.isFinite(rate)) return NaN;
+  if (s.payBasis === 'daily') return rate;
+  if (s.payBasis === 'weekly') return rate / 7;
+  const d = parseDay(dateKey);
+  return rate / daysInMonth(d.getFullYear(), d.getMonth());
+}
+
+/* Was this person on the payroll on this date? `inactiveFrom` is stamped the day they are
+   marked inactive, so deactivating someone today never rewrites what past days cost. */
+function accruesOn(s, dateKey){
+  if (s.active) return true;
+  return !!(s.inactiveFrom && dateKey < s.inactiveFrom);
+}
+
+/* One staff member's cost for one date: an override wins outright, whatever the pay basis. */
+function staffCostOn(s, dateKey){
+  const o = overrideFor(s.id, dateKey);
+  if (o) return { amount: Number.isFinite(o.amount) ? o.amount : 0, source:'override', present:o.present };
+  if (!accruesOn(s, dateKey)) return { amount: 0, source:'inactive', present:false };
+  return { amount: defaultDailyCost(s, dateKey), source:'default', present:true };
+}
+
+/* Day's total staff cost — the figure Step 10's P&L will consume. */
+function staffCostForDate(dateKey){
+  const lines = staff
+    .map(s => Object.assign({ staff:s }, staffCostOn(s, dateKey)))
+    .filter(l => l.source !== 'inactive');
+  return { dateKey, lines, total: lines.reduce((t, l) => t + (Number.isFinite(l.amount) ? l.amount : 0), 0) };
+}
+
+/* Running month-to-date actual: every day from the 1st through today, inclusive. */
+function monthToDate(s, ref){
+  const now = ref || new Date();
+  const y = now.getFullYear(), m = now.getMonth(), last = now.getDate();
+  let total = 0;
+  for (let d = 1; d <= last; d++){
+    const key = dayKey(new Date(y, m, d));
+    const c = staffCostOn(s, key);
+    if (c.source !== 'inactive' && Number.isFinite(c.amount)) total += c.amount;
+  }
+  return total;
+}
+
+const BASIS_LABEL = { daily:'Daily', weekly:'Weekly', monthly:'Monthly' };
+const basisHint = b => b === 'daily' ? 'Rate is paid per day.'
+  : b === 'weekly' ? 'Rate ÷ 7 per day.'
+  : 'Rate ÷ number of days in that calendar month.';
+
+function syncStaffDerived(){
+  const b = $('#st-basis').value, r = num($('#st-rate').value);
+  $('#basis-hint').textContent = basisHint(b);
+  const probe = { payBasis:b, rate:r };
+  const v = defaultDailyCost(probe, dayKey(new Date()));
+  $('#st-derived').textContent = Number.isFinite(v)
+    ? money(v) + (b === 'monthly' ? ' (this month)' : '') : '—';
+}
+
+function resetStaffForm(){
+  editingStaffId = null;
+  $('#staff-form').reset();
+  $('#st-basis').value = 'daily';
+  $('#st-active').value = '1';
+  clearErrs($('#staff-form'));
+  $('#staff-form-title').textContent = 'Add staff member';
+  $('#staff-submit-label').textContent = 'Add staff member';
+  $('#staff-cancel').hidden = true;
+  syncStaffDerived();
+}
+
+function startStaffEdit(id){
+  const s = staffById(id); if (!s) return;
+  editingStaffId = id;
+  $('#st-name').value = s.name;
+  $('#st-basis').value = s.payBasis;
+  $('#st-rate').value = s.rate;
+  $('#st-active').value = s.active ? '1' : '0';
+  clearErrs($('#staff-form'));
+  $('#staff-form-title').textContent = 'Edit staff member';
+  $('#staff-submit-label').textContent = 'Save changes';
+  $('#staff-cancel').hidden = false;
+  syncStaffDerived();
+  showView('staff');
+  $('#st-name').focus();
+  $('#staff-form').scrollIntoView({ block:'center', behavior:'smooth' });
+}
+
+$('#staff-form').addEventListener('submit', e => {
+  e.preventDefault();
+  clearErrs($('#staff-form'));
+  const v = {
+    name: $('#st-name').value.trim(),
+    payBasis: $('#st-basis').value,
+    rate: num($('#st-rate').value),
+    active: $('#st-active').value === '1'
+  };
+  let ok = true;
+  if (!v.name){ setErr('sname', 'Give the staff member a name.'); ok = false; }
+  else if (staff.some(s => norm(s.name) === norm(v.name) && s.id !== editingStaffId)){
+    setErr('sname', '“' + v.name + '” is already on the staff list.'); ok = false;
+  }
+  if (!Number.isFinite(v.rate) || v.rate < 0){ setErr('srate', 'Enter the rate for this pay basis.'); ok = false; }
+  if (!ok){ const f = $('.fld.invalid input, .fld.invalid select', $('#staff-form')); if (f) f.focus(); return; }
+
+  const today = dayKey(new Date());
+  if (editingStaffId){
+    const s = staffById(editingStaffId);
+    const wasActive = s.active;
+    Object.assign(s, v);
+    if (wasActive && !v.active) s.inactiveFrom = today;   /* stops accruing from today, keeps history */
+    if (!wasActive && v.active) delete s.inactiveFrom;
+    saveStaff();
+    toast('Updated “' + s.name + '”.', 'ok');
+  } else {
+    const s = Object.assign({ id: uid(), createdAt: new Date().toISOString() }, v);
+    if (!v.active) s.inactiveFrom = today;
+    staff.push(s);
+    saveStaff();
+    toast('Added “' + s.name + '” at ' + money(defaultDailyCost(s, today)) + '/day.', 'ok');
+  }
+  resetStaffForm();
+  renderAll();
+});
+$('#staff-cancel').addEventListener('click', () => { resetStaffForm(); toast('Edit cancelled.'); });
+$('#st-basis').addEventListener('change', syncStaffDerived);
+$('#st-rate').addEventListener('input', syncStaffDerived);
+
+function askDeleteStaff(id){
+  const s = staffById(id); if (!s) return;
+  const mine = attendance.filter(a => a.staffId === id).length;
+  confirmDialog({
+    title: 'Delete staff member',
+    body: '<p>Delete <strong>' + esc(s.name) + '</strong>?' +
+      (mine ? ' This also removes ' + mine + ' day override' + (mine > 1 ? 's' : '') +
+        ', which changes what those past days cost.' : '') +
+      '</p><p>To stop future cost without touching history, set them to <strong>Inactive</strong> instead.</p>',
+    okLabel: 'Delete anyway', danger: true,
+    onOk(){
+      staff = staff.filter(x => x.id !== id);
+      attendance = attendance.filter(a => a.staffId !== id);
+      if (calStaffId === id){ calStaffId = null; $('#cal-card').hidden = true; }
+      if (editingStaffId === id) resetStaffForm();
+      saveStaff(); saveAtt(); renderAll();
+      toast('Deleted “' + s.name + '”.', 'ok');
+    }
+  });
+}
+
+function renderStaff(){
+  const today = dayKey(new Date());
+  $('#staff-body').innerHTML = staff
+    .slice()
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map(s => {
+      const def = defaultDailyCost(s, today);
+      const mtd = monthToDate(s);
+      return '<tr>' +
+        '<td><span class="cell-name">' + esc(s.name) + '</span>' +
+          '<span class="cell-sub">' + (s.active ? 'active'
+            : 'inactive' + (s.inactiveFrom ? ' from ' + esc(s.inactiveFrom) : '')) + '</span></td>' +
+        '<td>' + (s.active ? '<span class="chip green">' : '<span class="chip">') +
+          esc(BASIS_LABEL[s.payBasis] || s.payBasis) + '</span></td>' +
+        '<td class="r">' + money(s.rate) + '</td>' +
+        '<td class="r">' + money(def) + '</td>' +
+        '<td class="r">' + money(mtd) + '</td>' +
+        '<td><span class="row-acts">' +
+          '<button class="btn btn-ghost btn-sm" type="button" data-cal="' + s.id + '">' +
+            '<svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg>Attendance</button>' +
+          '<button class="btn-icon" type="button" data-sedit="' + s.id + '" aria-label="Edit ' + esc(s.name) + '" title="Edit"><svg class="ico" aria-hidden="true"><use href="#i-pencil"/></svg></button>' +
+          '<button class="btn-icon danger" type="button" data-sdel="' + s.id + '" aria-label="Delete ' + esc(s.name) + '" title="Delete"><svg class="ico" aria-hidden="true"><use href="#i-trash"/></svg></button>' +
+        '</span></td></tr>';
+    }).join('');
+  $('#staff-empty').hidden = staff.length !== 0;
+
+  const activeCount = staff.filter(s => s.active).length;
+  const todayTotal = staffCostForDate(today).total;
+  const monthTotal = staff.reduce((t, s) => t + monthToDate(s), 0);
+  $('#staff-stats').innerHTML =
+    stat('Staff members', staff.length, activeCount + ' active') +
+    stat('Staff cost today', money(todayTotal), 'overrides applied where set', 'is-accent') +
+    stat('This month so far', money(monthTotal), 'running actual, all staff');
+
+  renderDayTotal();
+  renderCalendar();
+}
+
+$('#staff-body').addEventListener('click', e => {
+  const cal = e.target.closest('[data-cal]');
+  const ed = e.target.closest('[data-sedit]');
+  const dl = e.target.closest('[data-sdel]');
+  if (cal){ calStaffId = cal.dataset.cal; calMonth = new Date(); renderCalendar();
+    $('#cal-card').scrollIntoView({ block:'start', behavior:'smooth' }); }
+  if (ed) startStaffEdit(ed.dataset.sedit);
+  if (dl) askDeleteStaff(dl.dataset.sdel);
+});
+
+/* ----- day total ----- */
+function renderDayTotal(){
+  const key = $('#day-pick').value || dayKey(new Date());
+  const d = staffCostForDate(key);
+  if (!d.lines.length){
+    $('#day-total').innerHTML = sumRow('No staff accruing cost on ' + esc(key), money(0), 'total');
+    return;
+  }
+  $('#day-total').innerHTML = d.lines
+    .sort((a, b) => a.staff.name.localeCompare(b.staff.name))
+    .map(l => sumRow(esc(l.staff.name) +
+      (l.source === 'override'
+        ? ' · <span class="chip red">' + (l.present ? 'overridden' : 'absent') + '</span>'
+        : ' · ' + esc(BASIS_LABEL[l.staff.payBasis] || '') + ' default'),
+      money(l.amount))).join('') +
+    sumRow('Total staff cost · ' + esc(key), money(d.total), 'total');
+}
+$('#day-pick').addEventListener('change', renderDayTotal);
+
+/* ----- attendance calendar ----- */
+function renderCalendar(){
+  const s = calStaffId ? staffById(calStaffId) : null;
+  $('#cal-card').hidden = !s;
+  if (!s) return;
+
+  const y = calMonth.getFullYear(), m = calMonth.getMonth();
+  $('#cal-title').textContent = 'Attendance — ' + s.name;
+  $('#cal-month').textContent = calMonth.toLocaleString('en-IN', { month:'long', year:'numeric' });
+
+  const first = new Date(y, m, 1);
+  const lead = (first.getDay() + 6) % 7;           /* week starts Monday */
+  const total = daysInMonth(y, m);
+  const todayKey = dayKey(new Date());
+  let cells = '';
+  for (let i = 0; i < lead; i++) cells += '<span class="cal-day pad"></span>';
+  let monthTotal = 0, overrides = 0;
+  for (let d = 1; d <= total; d++){
+    const key = dayKey(new Date(y, m, d));
+    const c = staffCostOn(s, key);
+    const isOverride = c.source === 'override';
+    if (isOverride) overrides++;
+    if (c.source !== 'inactive' && Number.isFinite(c.amount) && key <= todayKey) monthTotal += c.amount;
+    const cls = 'cal-day' + (isOverride ? ' is-override' : '') +
+      (key === todayKey ? ' is-today' : '') + (key > todayKey ? ' is-future' : '');
+    const tag = c.source === 'inactive' ? 'not on payroll'
+      : isOverride ? (c.present ? 'overridden' : 'absent') : 'default';
+    cells += '<button type="button" class="' + cls + '" data-date="' + key + '" ' +
+      'aria-label="' + esc(s.name) + ' on ' + key + ': ' + tag + ', ' +
+      (Number.isFinite(c.amount) ? money(c.amount) : 'no rate') + '">' +
+      '<span class="d">' + d + '</span>' +
+      '<span class="amt">' + (c.source === 'inactive' ? '—' : money(c.amount)) + '</span>' +
+      '<span class="tag">' + tag + '</span></button>';
+  }
+  $('#cal-days').innerHTML = cells;
+  $('#cal-summary').innerHTML =
+    sumRow('Overridden days this month', String(overrides), 'sub') +
+    sumRow('Cost for ' + $('#cal-month').textContent + ' so far', money(monthTotal), 'total');
+}
+
+$('#cal-prev').addEventListener('click', () => { calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() - 1, 1); renderCalendar(); });
+$('#cal-next').addEventListener('click', () => { calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 1); renderCalendar(); });
+$('#cal-close').addEventListener('click', () => { calStaffId = null; $('#cal-card').hidden = true; });
+$('#cal-days').addEventListener('click', e => {
+  const cell = e.target.closest('[data-date]');
+  if (cell) openDayEditor(calStaffId, cell.dataset.date);
+});
+
+/* per-day override editor */
+function openDayEditor(staffId, dateKey){
+  const s = staffById(staffId); if (!s) return;
+  const existing = overrideFor(staffId, dateKey);
+  const def = defaultDailyCost(s, dateKey);
+  const body =
+    '<p><strong>' + esc(s.name) + '</strong> · ' + esc(dateKey) + '</p>' +
+    '<div class="kv"><span>Default for this day</span><span>' + money(def) + '</span></div>' +
+    '<div class="fld" style="margin-top:6px"><label for="ov-present">Attendance</label>' +
+      '<select id="ov-present">' +
+        '<option value="1">Present</option>' +
+        '<option value="0">Absent</option>' +
+      '</select></div>' +
+    '<div class="fld"><label for="ov-amt">Amount paid for this day (&#8377;)</label>' +
+      '<input id="ov-amt" type="number" min="0" step="any" inputmode="decimal">' +
+      '<p class="help">This exact amount is what the day costs, whatever the pay basis.</p></div>';
+
+  confirmDialog({
+    title: existing ? 'Edit this day' : 'Override this day',
+    body,
+    okLabel: 'Save this day',
+    extraLabel: existing ? 'Remove override' : null,
+    onExtra: existing ? () => {
+      attendance = attendance.filter(a => !(a.staffId === staffId && a.date === dateKey));
+      saveAtt(); renderAll();
+      toast('Override removed — ' + dateKey + ' back to the default.', 'ok');
+    } : null,
+    onOk(){
+      const present = $('#ov-present').value === '1';
+      const amt = num($('#ov-amt').value);
+      const amount = Number.isFinite(amt) && amt >= 0 ? amt : 0;
+      const row = overrideFor(staffId, dateKey);
+      if (row){ row.present = present; row.amount = amount; row.at = new Date().toISOString(); }
+      else attendance.push({ id: uid(), staffId, date: dateKey, present, amount, at: new Date().toISOString() });
+      saveAtt(); renderAll();
+      toast(esc(s.name) + ' · ' + dateKey + ' set to ' + money(amount) + '.', 'ok');
+    }
+  });
+
+  /* prefill once the dialog is in the DOM; absent defaults to 0 but stays editable */
+  const presentSel = $('#ov-present'), amtInput = $('#ov-amt');
+  presentSel.value = existing ? (existing.present ? '1' : '0') : '1';
+  amtInput.value = existing ? existing.amount : (Number.isFinite(def) ? +def.toFixed(2) : 0);
+  presentSel.addEventListener('change', () => {
+    amtInput.value = presentSel.value === '1'
+      ? (Number.isFinite(def) ? +def.toFixed(2) : 0)
+      : 0;
+  });
+}
+
+/* ============================================================
+   DAILY — SANITATION COST (step 4) + TRANSPORT (step 5)
+   ============================================================ */
+let dailyDate = dayKey(new Date());
+
+/* ----- step 4: sanitation ----- */
+/* Sanitation cost for a date is not entered anywhere — it is read back from the stock
+   ledger: whatever was deducted that day from items tagged Sanitation & Disposables.
+   The ledger stores the category as it was at the time, so re-tagging an item later
+   does not rewrite what past days cost. */
+function sanitationForDate(dateKey_){
+  const lines = stockLog.filter(e => {
+    if (dayKey(e.at) !== dateKey_) return false;
+    const cat = e.category || (itemById(e.itemId) || {}).category;
+    return cat === CAT_SANITATION;
+  });
+  const total = lines.reduce((t, e) => t + (Number.isFinite(e.value) ? e.value : 0), 0);
+  return { lines, total, unvalued: lines.filter(e => !Number.isFinite(e.value)).length };
+}
+
+/* usage logging — same deduct-and-record pattern as "mark as cooked" */
+function openUsageEditor(itemId){
+  const it = itemById(itemId); if (!it) return;
+  const base = baseUnit(it.unitType);
+  const per = costPerBase(it);
+  const opts = UNITS[it.unitType].opts;
+  const body =
+    '<p>Log usage of <strong>' + esc(it.name) + '</strong>. This deducts stock and records the ' +
+      'value as sanitation cost for today.</p>' +
+    '<div class="kv"><span>In stock</span><span>' + qty(it.stock) + ' ' + base + '</span></div>' +
+    '<div class="kv"><span>Unit cost</span><span>' +
+      (Number.isFinite(per) ? rate(per) + ' / ' + base : 'unknown — no purchase logged') + '</span></div>' +
+    '<div class="fld" style="margin-top:6px"><label for="use-qty">Quantity used</label>' +
+      '<div class="unit-pair"><input id="use-qty" type="number" min="0" step="any" inputmode="decimal" placeholder="0">' +
+      '<select id="use-unit" aria-label="Unit of quantity used">' +
+        opts.map(o => '<option value="' + o[0] + '">' + o[0] + '</option>').join('') +
+      '</select></div></div>' +
+    '<p class="help" id="use-preview">Enter a quantity to see the deduction.</p>' +
+    dateFieldHtml('use-date', 'Date used');
+
+  confirmDialog({ title:'Log sanitation usage', body, okLabel:'Deduct & log', onOk(){
+    const q = num($('#use-qty').value);
+    const f = unitFactor(it.unitType, $('#use-unit').value) || 1;
+    if (!Number.isFinite(q) || q <= 0){ toast('Enter a quantity greater than 0.', 'err'); return; }
+    const key = readDateField('#use-date');
+    if (!key){ toast('Usage cannot be logged for a future date.', 'err'); return; }
+    const baseQty = q * f;
+    it.stock = it.stock - baseQty;
+    logStockMove({ at: movementAt(key), itemId:it.id, itemName:it.name, category:it.category,
+                   baseQty, base, value: Number.isFinite(per) ? baseQty * per : null,
+                   reason:'sanitation' });
+    saveInv(); saveLog(); renderAll();
+    toast('Logged ' + qty(baseQty) + ' ' + base + ' of “' + it.name + '”' +
+      (Number.isFinite(per) ? ' · ' + money(baseQty * per) : ' · value unknown') +
+      (key === dayKey(new Date()) ? '.' : ' · costed against ' + key + '.'), 'ok');
+  }});
+
+  const qIn = $('#use-qty'), uIn = $('#use-unit'), prev = $('#use-preview');
+  const sync = () => {
+    const q = num(qIn.value), f = unitFactor(it.unitType, uIn.value) || 1;
+    if (!Number.isFinite(q) || q <= 0){ prev.textContent = 'Enter a quantity to see the deduction.'; return; }
+    const bq = q * f, after = it.stock - bq;
+    prev.textContent = 'Deducts ' + qty(bq) + ' ' + base + ' → stock after ' + qty(after) + ' ' + base +
+      ' · value ' + (Number.isFinite(per) ? money(bq * per) : 'unknown') +
+      (after < 0 ? ' · warning: this takes stock below zero' : '');
+  };
+  qIn.addEventListener('input', sync);
+  uIn.addEventListener('change', sync);
+}
+
+/* ----- step 5: transport ----- */
+/* Per-day entries live in one dated record. Delivery and labor are stored as separate
+   fields and never summed into storage — only added up for display. */
+function dailyRecord(dateKey_, create){
+  let rec = daily.find(d => d.date === dateKey_);
+  if (!rec && create){ rec = { date: dateKey_, transportDelivery:null, transportLabor:null }; daily.push(rec); }
+  return rec;
+}
+function transportForDate(dateKey_){
+  const rec = dailyRecord(dateKey_) || {};
+  const delivery = Number.isFinite(rec.transportDelivery) ? rec.transportDelivery : 0;
+  const labor = Number.isFinite(rec.transportLabor) ? rec.transportLabor : 0;
+  return { delivery, labor, total: delivery + labor };
+}
+function saveTransportField(field, value){
+  const rec = dailyRecord(dailyDate, true);
+  rec[field] = value;
+  rec.updatedAt = new Date().toISOString();
+  saveDaily();
+  renderDaily();
+}
+
+/* ----- step 6: sales log ----- */
+/* Each entry snapshots the recipe's cost per serving at the time it is logged, so a later
+   purchase at a different price cannot silently re-price a day that has already closed.
+   The snapshot comes from the Phase 1 costing engine — same formula, captured once. */
+function salesForDate(dateKey_){
+  const lines = sales.filter(s => s.date === dateKey_).map(s => {
+    const recipe = recipes.find(r => r.id === s.recipeId);
+    const liveCost = recipe ? computeRecipe(recipe).perServing : NaN;
+    const unitCost = Number.isFinite(s.unitCost) ? s.unitCost : NaN;
+    return Object.assign({}, s, {
+      recipe, liveCost, unitCost,
+      revenue: (Number.isFinite(s.qty) && Number.isFinite(s.price)) ? s.qty * s.price : NaN,
+      cogs: (Number.isFinite(s.qty) && Number.isFinite(unitCost)) ? s.qty * unitCost : NaN,
+      drifted: Number.isFinite(liveCost) && Number.isFinite(unitCost) &&
+               Math.abs(liveCost - unitCost) > 0.005
+    });
+  });
+  return {
+    lines,
+    revenue: lines.reduce((t, l) => t + (Number.isFinite(l.revenue) ? l.revenue : 0), 0),
+    cogs: lines.reduce((t, l) => t + (Number.isFinite(l.cogs) ? l.cogs : 0), 0),
+    uncosted: lines.filter(l => !Number.isFinite(l.unitCost)).length
+  };
+}
+
+function renderSaleRecipeOptions(){
+  const sel = $('#sl-recipe');
+  const keep = sel.value;
+  const list = recipes.slice().sort((a, b) => a.name.localeCompare(b.name));
+  sel.innerHTML = list.length
+    ? list.map(r => '<option value="' + r.id + '">' + esc(r.name) + '</option>').join('')
+    : '<option value="">No recipes yet — add one on the Recipes tab</option>';
+  if (list.some(r => r.id === keep)) sel.value = keep;
+  sel.disabled = !list.length;
+}
+function fillSalePrice(){
+  const r = recipes.find(x => x.id === $('#sl-recipe').value);
+  $('#sl-price').value = (r && Number.isFinite(r.menuPrice)) ? r.menuPrice : '';
+}
+$('#sl-recipe').addEventListener('change', fillSalePrice);
+
+$('#sale-form').addEventListener('submit', e => {
+  e.preventDefault();
+  clearErrs($('#sale-form'));
+  const r = recipes.find(x => x.id === $('#sl-recipe').value);
+  const q = num($('#sl-qty').value);
+  const p = num($('#sl-price').value);
+  let ok = true;
+  if (!r){ setErr('salerecipe', 'Pick a recipe. Add one on the Recipes tab first.'); ok = false; }
+  if (!Number.isFinite(q) || q <= 0){ setErr('saleqty', 'Enter how many were sold.'); ok = false; }
+  if (!Number.isFinite(p) || p < 0){ setErr('saleprice', 'Enter the price each. Set a menu price on the recipe to prefill it.'); ok = false; }
+  const saleGst = gstOn() && $('#sl-gst').value === '1';
+  const saleRate = $('#sl-gstrate').value === '' ? NaN : num($('#sl-gstrate').value);
+  if (saleGst && (!Number.isFinite(saleRate) || saleRate <= 0)){
+    setErr('salegstrate', 'Enter the GST rate, or set GST applicable to No.'); ok = false;
+  }
+  if (!ok){ const f = $('.fld.invalid input, .fld.invalid select', $('#sale-form')); if (f) f.focus(); return; }
+
+  const perServing = computeRecipe(r).perServing;
+  const gross = q * p;
+  sales.push({ id: uid(), date: dailyDate, recipeId: r.id, recipeName: r.name,
+               qty: q, price: p, unitCost: Number.isFinite(perServing) ? perServing : null,
+               gstApplicable: saleGst, gstRate: saleGst ? saleRate : null,
+               gstAmount: gstComponent(gross, saleGst, saleRate),
+               createdAt: new Date().toISOString() });
+  saveSales();
+  $('#sl-qty').value = '';
+  fillSalePrice();
+  renderDaily();
+  toast('Logged ' + qty(q) + ' × “' + r.name + '” for ' + dailyDate + '.', 'ok');
+});
+
+function askDeleteSale(id){
+  const s = sales.find(x => x.id === id); if (!s) return;
+  confirmDialog({
+    title: 'Remove sale entry',
+    body: '<p>Remove <strong>' + qty(s.qty) + ' × ' + esc(s.recipeName) + '</strong> from ' +
+      esc(s.date) + '? This changes that day’s revenue and COGS.</p>',
+    okLabel: 'Remove entry', danger: true,
+    onOk(){ sales = sales.filter(x => x.id !== id); saveSales(); renderDaily();
+      toast('Sale entry removed.', 'ok'); }
+  });
+}
+
+/* ----- step 7: automatic opening / closing stock ----- */
+/* A browser-only tool cannot run a job at midnight, so snapshots are taken lazily: the
+   first time Galley is opened on a new day it records that day's opening from live stock,
+   and stamps the previous open day's closing with the same levels — nothing can have moved
+   in between, because this app is the only thing that changes stock. */
+function liveStockSnapshot(){
+  return inventory.map(i => {
+    const per = costPerBase(i);
+    return { itemId:i.id, name:i.name, base:baseUnit(i.unitType), stock:i.stock,
+             unitCost: Number.isFinite(per) ? per : null };
+  });
+}
+function ensureSnapshots(){
+  const today = dayKey(new Date());
+  if (snapshots.some(s => s.date === today)) return;
+  const now = new Date().toISOString();
+  const live = liveStockSnapshot();
+  const open = snapshots.filter(s => s.date < today && !s.closing).sort((a, b) => a.date.localeCompare(b.date)).pop();
+  if (open){ open.closing = live; open.closingAt = now; open.closingInferred = true; }
+  snapshots.push({ date: today, opening: live, openingAt: now });
+  saveSnap();
+}
+const snapshotForDate = dateKey_ => snapshots.find(s => s.date === dateKey_) || null;
+
+/* rows for display: union of what the snapshot held and what exists now, so an item added
+   mid-day shows an empty opening rather than being dropped */
+function snapshotRows(rec, isToday){
+  const closing = isToday ? liveStockSnapshot() : (rec.closing || null);
+  const byId = new Map();
+  (rec.opening || []).forEach(o => byId.set(o.itemId, { name:o.name, base:o.base, opening:o, closing:null }));
+  (closing || []).forEach(c => {
+    const row = byId.get(c.itemId) || { name:c.name, base:c.base, opening:null, closing:null };
+    row.closing = c; row.name = row.name || c.name; row.base = row.base || c.base;
+    byId.set(c.itemId, row);
+  });
+  return { rows: Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name)), hasClosing: !!closing };
+}
+
+/* ============================================================
+   STEP 8 — GST (pass-through only) + STEP 9 — STORE DETAILS
+   ============================================================ */
+/* GST is reported, never absorbed: item cost, COGS and margin are computed exactly as
+   they were before this step. A rate is treated as *included* in the amount entered
+   (the price paid / the price charged), so the tax component is extracted for reporting:
+       gst = amount × rate / (100 + rate)
+   Nothing in the costing engine reads these fields. */
+function gstComponent(amount, applicable, ratePct){
+  if (!settings.gstEnabled || !applicable) return null;
+  const r = Number.isFinite(ratePct) ? ratePct : NaN;
+  if (!Number.isFinite(amount) || !Number.isFinite(r) || r <= 0) return null;
+  return amount * r / (100 + r);
+}
+const gstOn = () => !!settings.gstEnabled;
+
+function gstForDate(dateKey_){
+  const paidLines = stockLog.filter(e => e.reason === 'purchase' && dayKey(e.at) === dateKey_ && Number.isFinite(e.gst));
+  const collectedLines = sales.filter(s => s.date === dateKey_ && Number.isFinite(s.gstAmount));
+  const paid = paidLines.reduce((t, e) => t + e.gst, 0);
+  const collected = collectedLines.reduce((t, s) => t + s.gstAmount, 0);
+  /* Standalone restaurants are taxed at 5% with no Input Tax Credit, so output GST is
+     remitted in full and input GST is never recoverable — it is simply part of the cost of
+     those goods and is already inside COGS via the purchase price. Nothing is netted here:
+     what is owed is the GST collected. `paid` is reported for information only. */
+  return { paid, collected, payable: collected, paidLines, collectedLines };
+}
+
+function applyGstVisibility(){
+  $$('.gst-only').forEach(el => { el.hidden = !gstOn(); });
+  $('#gst-note').hidden = !gstOn();
+}
+
+function renderSettings(){
+  $('#set-gst').value = gstOn() ? '1' : '0';
+  const st = settings.store || {};
+  if (document.activeElement !== $('#set-name')) $('#set-name').value = st.name || '';
+  if (document.activeElement !== $('#set-phone')) $('#set-phone').value = st.phone || '';
+  if (document.activeElement !== $('#set-address')) $('#set-address').value = st.address || '';
+  if (document.activeElement !== $('#set-gstin')) $('#set-gstin').value = st.gstin || '';
+  applyGstVisibility();
+}
+
+$('#set-gst').addEventListener('change', () => {
+  settings.gstEnabled = $('#set-gst').value === '1';
+  saveSettings();
+  applyGstVisibility();
+  renderAll();
+  toast(gstOn() ? 'GST tracking enabled — purchases and sales now take an optional GST rate.'
+                : 'GST tracking disabled — GST fields and P&L lines are hidden.', 'ok');
+});
+[['#set-name', 'name'], ['#set-phone', 'phone'], ['#set-address', 'address'], ['#set-gstin', 'gstin']]
+  .forEach(([sel, key]) => {
+    $(sel).addEventListener('input', () => {
+      settings.store = settings.store || {};
+      settings.store[key] = $(sel).value;
+      saveSettings();
+    });
+  });
+
+/* ============================================================
+   STEP 10 — DAILY P&L STATEMENT
+   ============================================================ */
+function dailyPnl(dateKey_){
+  const sl = salesForDate(dateKey_);
+  const staff_ = staffCostForDate(dateKey_).total;
+  const san = sanitationForDate(dateKey_).total;
+  const tr = transportForDate(dateKey_);
+  const revenue = sl.revenue;
+  const cogs = sl.cogs;
+  const grossProfit = revenue - cogs;
+  const grossMargin = revenue > 0 ? (grossProfit / revenue) * 100 : NaN;
+  const operating = grossProfit - staff_ - san - tr.total;
+  return { dateKey: dateKey_, sl, revenue, cogs, grossProfit, grossMargin,
+           staff: staff_, sanitation: san, transport: tr,
+           operatingProfit: operating, netProfit: operating, gst: gstForDate(dateKey_) };
+}
+
+function renderPnl(){
+  const p = dailyPnl(dailyDate);
+  const pct = v => Number.isFinite(v) ? v.toFixed(1) + '%' : '—';
+  const signed = v => (Number.isFinite(v) && v < 0 ? '' : '') + money(v);
+
+  $('#pnl-title').textContent = 'Daily profit & loss · ' + dailyDate;
+  $('#d-pnl').innerHTML =
+    sumRow('Revenue' + (p.sl.lines.length ? ' · ' + p.sl.lines.length + ' sale entr' +
+      (p.sl.lines.length > 1 ? 'ies' : 'y') : ''), money(p.revenue), 'sub') +
+    sumRow('COGS · cost of what sold', money(p.cogs), 'deduct') +
+    sumRow('Gross profit', signed(p.grossProfit), 'rule' + (p.grossProfit < 0 ? ' neg' : '')) +
+    sumRow('Gross margin', pct(p.grossMargin), 'pct') +
+    sumRow('Staff cost', money(p.staff), 'deduct') +
+    sumRow('Sanitation cost', money(p.sanitation), 'deduct') +
+    sumRow('Inventory delivery transport', money(p.transport.delivery), 'deduct indent') +
+    sumRow('Transport labor', money(p.transport.labor), 'deduct indent') +
+    sumRow('Transport cost total', money(p.transport.total), 'deduct') +
+    sumRow('Operating profit · EBITDA-equivalent', signed(p.operatingProfit),
+      'rule' + (p.operatingProfit < 0 ? ' neg' : '')) +
+    sumRow('Net profit · same figure as above', signed(p.netProfit),
+      'hero' + (p.netProfit < 0 ? ' neg' : ''));
+
+  /* GST sits below the profit section and is never netted into it */
+  const g = $('#d-gst');
+  g.hidden = !gstOn();
+  if (gstOn()){
+    g.innerHTML =
+      sumRow('GST collected on sales', money(p.gst.collected), 'sub') +
+      sumRow('GST paid on purchases (not recoverable — already included in COGS)',
+        money(p.gst.paid), 'sub') +
+      sumRow('GST payable to government', money(p.gst.payable), 'total') +
+      sumRow('Pass-through · excluded from the profit lines above', '', 'pct');
+  }
+}
+
+/* ----- daily view ----- */
+function renderDaily(){
+  const d = dailyDate;
+  const san = sanitationForDate(d);
+  const tr = transportForDate(d);
+  const staffTotal = staffCostForDate(d).total;
+
+  const sl = salesForDate(d);
+
+  $('#daily-stats').innerHTML =
+    stat('Revenue', money(sl.revenue), sl.lines.length
+      ? sl.lines.length + ' sale entr' + (sl.lines.length > 1 ? 'ies' : 'y') : 'nothing logged') +
+    stat('COGS', money(sl.cogs), 'cost of what sold', 'is-accent') +
+    stat('Staff cost', money(staffTotal), 'from the Staff tab') +
+    stat('Sanitation cost', money(san.total), san.lines.length
+      ? san.lines.length + ' movement' + (san.lines.length > 1 ? 's' : '') + ' logged'
+      : 'nothing logged') +
+    stat('Transport cost', money(tr.total), 'delivery + labor');
+
+  /* sales table */
+  renderSaleRecipeOptions();
+  if (!$('#sl-price').value && $('#sl-recipe').value) fillSalePrice();
+  $('#d-sales-body').innerHTML = sl.lines.map(l =>
+    '<tr>' +
+      '<td><span class="cell-name">' + esc(l.recipeName) + '</span>' +
+        (l.recipe ? '' : '<span class="cell-sub">recipe since deleted — figures kept as logged</span>') +
+        (l.drifted ? '<span class="cell-sub">recipe now costs ' + money(l.liveCost) +
+          ' / serving; this entry keeps the cost at the time it was logged</span>' : '') + '</td>' +
+      '<td class="r">' + qty(l.qty) + '</td>' +
+      '<td class="r">' + money(l.price) + '</td>' +
+      '<td class="r">' + money(l.revenue) + '</td>' +
+      '<td class="r">' + (Number.isFinite(l.unitCost) ? money(l.unitCost)
+        : '<span class="chip red">uncosted</span>') + '</td>' +
+      '<td class="r">' + (Number.isFinite(l.cogs) ? money(l.cogs) : '—') + '</td>' +
+      '<td><span class="row-acts">' +
+        '<button class="btn-icon danger" type="button" data-saledel="' + l.id +
+        '" aria-label="Remove sale entry" title="Remove"><svg class="ico" aria-hidden="true"><use href="#i-trash"/></svg></button>' +
+      '</span></td></tr>').join('');
+  $('#d-sales-empty').hidden = sl.lines.length !== 0;
+  $('#d-sales-summary').innerHTML =
+    sumRow('Total revenue · ' + esc(d), money(sl.revenue), 'sub') +
+    sumRow('Total COGS · cost of what sold' + (sl.uncosted
+      ? ' (' + sl.uncosted + ' entr' + (sl.uncosted > 1 ? 'ies have' : 'y has') + ' no cost and are excluded)' : ''),
+      money(sl.cogs), 'total');
+
+  /* opening / closing stock */
+  const isToday = d === dayKey(new Date());
+  const snap = snapshotForDate(d);
+  $('#d-snap-close-head').textContent = isToday ? 'Current' : 'Closing';
+  if (!snap){
+    $('#d-snap-body').innerHTML = '';
+    $('#d-snap-empty').hidden = false;
+    $('#d-snap-hint').textContent = 'Captured automatically — nothing to enter.';
+  } else {
+    const { rows, hasClosing } = snapshotRows(snap, isToday);
+    let openVal = 0, closeVal = 0;
+    $('#d-snap-body').innerHTML = rows.map(r2 => {
+      const o = r2.opening, c = r2.closing;
+      const oQty = o ? o.stock : NaN, cQty = c ? c.stock : NaN;
+      if (o && Number.isFinite(o.unitCost)) openVal += o.stock * o.unitCost;
+      if (c && Number.isFinite(c.unitCost)) closeVal += c.stock * c.unitCost;
+      const change = (Number.isFinite(oQty) && Number.isFinite(cQty)) ? cQty - oQty : NaN;
+      return '<tr>' +
+        '<td><span class="cell-name">' + esc(r2.name) + '</span>' +
+          (o ? '' : '<span class="cell-sub">added after the day opened</span>') + '</td>' +
+        '<td class="r">' + (Number.isFinite(oQty) ? qty(oQty) + ' ' + esc(r2.base || '') : '—') + '</td>' +
+        '<td class="r">' + (Number.isFinite(cQty) ? qty(cQty) + ' ' + esc(r2.base || '')
+          : '<span class="cell-sub">not captured</span>') + '</td>' +
+        '<td class="r">' + (Number.isFinite(change)
+          ? (change > 0 ? '+' : '') + qty(change) : '—') + '</td>' +
+        '<td class="r">' + (c && Number.isFinite(c.unitCost) ? money(c.stock * c.unitCost) : '—') + '</td></tr>';
+    }).join('') +
+    (rows.length ? '<tr><td><strong>Stock value</strong></td>' +
+      '<td class="r"><strong>' + money(openVal) + '</strong></td>' +
+      '<td class="r"><strong>' + (hasClosing ? money(closeVal) : '—') + '</strong></td>' +
+      '<td class="r">' + (hasClosing ? (closeVal - openVal > 0 ? '+' : '') + money(closeVal - openVal) : '—') + '</td>' +
+      '<td class="r"></td></tr>' : '');
+    $('#d-snap-empty').hidden = rows.length !== 0;
+    $('#d-snap-hint').textContent = isToday
+      ? 'Opening captured at ' + new Date(snap.openingAt).toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' }) +
+        '. The day is still open, so the second column is live stock.'
+      : snap.closing
+        ? 'Opening and closing captured automatically' + (snap.closingInferred
+            ? ' — closing was stamped when Galley was next opened.' : '.')
+        : 'Opening captured; this day has not been closed out yet.';
+  }
+
+  $('#d-transport-summary').innerHTML =
+    sumRow('Inventory delivery transport', money(tr.delivery), 'sub') +
+    sumRow('Transport labor', money(tr.labor), 'sub') +
+    sumRow('Transport total · ' + esc(d), money(tr.total), 'total');
+
+  $('#d-san-body').innerHTML = san.lines
+    .slice()
+    .sort((a, b) => String(a.at).localeCompare(String(b.at)))
+    .map(e => '<tr>' +
+      '<td><span class="cell-name">' + esc(e.itemName || 'Item') + '</span>' +
+        '<span class="cell-sub">' + (e.reason === 'cook'
+          ? 'used in ' + esc(e.refName || 'a recipe') : 'usage logged') + '</span></td>' +
+      '<td>' + (isBackdated(e)
+        ? '<span class="chip amber">backdated</span><span class="cell-sub">entered ' +
+            esc(new Date(e.loggedAt).toLocaleDateString('en-IN', { day:'2-digit', month:'short' })) + '</span>'
+        : esc(new Date(e.at).toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' }))) + '</td>' +
+      '<td class="r">' + qty(e.baseQty) + ' ' + esc(e.base || '') + '</td>' +
+      '<td class="r">' + (Number.isFinite(e.value)
+        ? money(e.value) : '<span class="chip red">unvalued</span>') + '</td></tr>').join('') +
+    (san.lines.length ? '<tr><td colspan="3"><strong>Sanitation total</strong>' +
+      (san.unvalued ? '<span class="cell-sub">' + san.unvalued +
+        (san.unvalued > 1 ? ' movements have no unit cost and are excluded'
+                          : ' movement has no unit cost and is excluded') + '</span>' : '') +
+      '</td><td class="r"><strong>' + money(san.total) + '</strong></td></tr>' : '');
+  $('#d-san-empty').hidden = san.lines.length !== 0;
+
+  const rec = dailyRecord(d) || {};
+  if (document.activeElement !== $('#d-tdel'))
+    $('#d-tdel').value = Number.isFinite(rec.transportDelivery) ? rec.transportDelivery : '';
+  if (document.activeElement !== $('#d-tlab'))
+    $('#d-tlab').value = Number.isFinite(rec.transportLabor) ? rec.transportLabor : '';
+  if ($('#d-date').value !== d) $('#d-date').value = d;
+
+  renderPnl();          /* the statement is part of the daily view, not a separate screen */
+}
+
+function setDailyDate(key){
+  dailyDate = key;
+  renderDaily();
+}
+$('#d-date').addEventListener('change', () => setDailyDate($('#d-date').value || dayKey(new Date())));
+$('#d-prev').addEventListener('click', () => {
+  const t = parseDay(dailyDate); t.setDate(t.getDate() - 1); setDailyDate(dayKey(t));
+});
+$('#d-next').addEventListener('click', () => {
+  const t = parseDay(dailyDate); t.setDate(t.getDate() + 1); setDailyDate(dayKey(t));
+});
+$('#d-today').addEventListener('click', () => setDailyDate(dayKey(new Date())));
+$('#d-sales-body').addEventListener('click', e => {
+  const del = e.target.closest('[data-saledel]');
+  if (del) askDeleteSale(del.dataset.saledel);
+});
+[['#d-tdel', 'transportDelivery'], ['#d-tlab', 'transportLabor']].forEach(([sel, field]) => {
+  $(sel).addEventListener('change', () => {
+    const raw = $(sel).value;
+    if (raw === ''){ saveTransportField(field, null); return; }
+    const v = num(raw);
+    if (!Number.isFinite(v) || v < 0){ toast('Transport cost must be 0 or more.', 'err'); renderDaily(); return; }
+    saveTransportField(field, v);
+    toast('Saved for ' + dailyDate + '.', 'ok');
+  });
+});
+
+/* ============================================================
+   shared render
+   ============================================================ */
+function renderDatalists(){
+  const names = inventory.map(i => i.name).sort((a, b) => a.localeCompare(b));
+  $('#dl-items').innerHTML = names.map(n => '<option value="' + esc(n) + '"></option>').join('');
+
+  const invCats = Array.from(new Set(inventory.map(i => i.category).filter(Boolean))).sort();
+  const keep = $('#inv-cat').value;
+  $('#inv-cat').innerHTML = '<option value="">All categories</option>' +
+    invCats.map(c => '<option value="' + esc(c) + '">' + esc(c) + '</option>').join('');
+  if (invCats.includes(keep)) $('#inv-cat').value = keep;
+
+  const rCats = Array.from(new Set(recipes.map(r => r.category).filter(Boolean))).sort();
+  $('#dl-rcats').innerHTML = rCats.map(c => '<option value="' + esc(c) + '"></option>').join('');
+  const keepR = $('#rec-cat').value;
+  $('#rec-cat').innerHTML = '<option value="">All categories</option>' +
+    rCats.map(c => '<option value="' + esc(c) + '">' + esc(c) + '</option>').join('');
+  if (rCats.includes(keepR)) $('#rec-cat').value = keepR;
+
+  const bUnits = Array.from(new Set(recipes.map(r => r.batchUnit).filter(Boolean))).sort();
+  $('#dl-bunits').innerHTML = bUnits.map(u => '<option value="' + esc(u) + '"></option>').join('');
+  const sNames = Array.from(new Set(recipes.map(r => r.servingName).filter(Boolean))).sort();
+  $('#dl-snames').innerHTML = sNames.map(u => '<option value="' + esc(u) + '"></option>').join('');
+}
+
+function renderAll(){
+  renderDatalists();
+  renderInventory();
+  renderRecipes();
+  syncBuilder();
+  renderStaff();
+  renderDaily();
+  renderSettings();
+}
+
+/* ---------------- boot ---------------- */
+syncTypeUI();
+resetRecipeForm();
+resetStaffForm();
+$('#day-pick').value = dayKey(new Date());
+$('#d-date').value = dailyDate;
+ensureSnapshots();
+renderAll();
+showView(location.hash.slice(1));
+window.addEventListener('hashchange', () => showView(location.hash.slice(1)));
+
+/* expose a tiny surface for verification in the console */
+window.Galley = {
+  get inventory(){ return inventory; },
+  get recipes(){ return recipes; },
+  get staff(){ return staff; },
+  get attendance(){ return attendance; },
+  get stockLog(){ return stockLog; },
+  computeRecipe, costPerBase, unitFactor,
+  get daily(){ return daily; },
+  defaultDailyCost, staffCostOn, staffCostForDate, monthToDate, dayKey,
+  get sales(){ return sales; },
+  get snapshots(){ return snapshots; },
+  get settings(){ return settings; },
+  sanitationForDate, transportForDate, salesForDate, snapshotForDate, ensureSnapshots,
+  gstForDate, dailyPnl, gstComponent
+};
+</script>
+</body>
+</html>
